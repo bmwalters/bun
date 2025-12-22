@@ -4,7 +4,7 @@ else()
   setx(ESBUILD_EXECUTABLE ${CWD}/node_modules/.bin/esbuild)
 endif()
 
-register_bun_install(
+register_npm_install(
   CWD
     ${CWD}
   NODE_MODULES_VARIABLE

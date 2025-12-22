@@ -78,7 +78,7 @@ set(BUN_ERROR_OUTPUTS
   ${BUN_ERROR_OUTPUT}/bun-error.css
 )
 
-register_bun_install(
+register_npm_install(
   CWD
     ${BUN_ERROR_SOURCE}
   NODE_MODULES_VARIABLE
@@ -168,7 +168,7 @@ foreach(source ${BUN_NODE_FALLBACKS_SOURCES})
   list(APPEND BUN_NODE_FALLBACKS_OUTPUTS ${BUN_NODE_FALLBACKS_OUTPUT}/${filename})
 endforeach()
 
-register_bun_install(
+register_npm_install(
   CWD
     ${BUN_NODE_FALLBACKS_SOURCE}
   NODE_MODULES_VARIABLE
