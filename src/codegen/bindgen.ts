@@ -35,8 +35,8 @@ import {
   type ReturnStrategy,
   type TypeKind,
   type Variant,
-} from "./bindgen-lib-internal";
-import { argParse, readdirRecursiveWithExclusionsAndExtensionsSync, writeIfNotChanged } from "./helpers";
+} from "./bindgen-lib-internal.ts";
+import { argParse, readdirRecursiveWithExclusionsAndExtensionsSync, writeIfNotChanged } from "./helpers.ts";
 
 // arg parsing
 let { "codegen-root": codegenRoot, debug } = argParse(["codegen-root", "debug"]);

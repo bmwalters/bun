@@ -12,7 +12,7 @@ import {
   registerFunction,
   TypeImpl,
   type TypeKind,
-} from "./bindgen-lib-internal";
+} from "./bindgen-lib-internal.ts";
 
 /** A type definition for argument parsing. See `bindgen.md` for usage details. */
 export type Type<

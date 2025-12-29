@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
-import * as helpers from "../helpers";
-import { NamedType, Type } from "./internal/base";
+import * as helpers from "../helpers.ts";
+import { NamedType, Type } from "./internal/base.ts";
 
 const USAGE = `\
 Usage: script.ts [options]
