@@ -1,5 +1,8 @@
 import util from "node:util";
+import { createRequire } from "node:module";
 import type { NullableType, OptionalType } from "./optional";
+
+const require = createRequire(import.meta.url);
 
 /** Default is "compact". */
 export type CodeStyle = "compact" | "pretty";

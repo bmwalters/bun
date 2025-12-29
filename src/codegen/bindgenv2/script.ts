@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import * as helpers from "../helpers.ts";
 import { NamedType, Type } from "./internal/base.ts";
+import { createRequire } from "node:module";
 
 const USAGE = `\
 Usage: script.ts [options]
@@ -19,8 +20,9 @@ let codegenPath: string;
 let sources: string[];
 
 function getNamedExports(): NamedType[] {
+  const require = createRequire(import.meta.url);
   return sources.flatMap(path => {
-    const exports = import.meta.require(path);
+    const exports = require(path);
     return Object.values(exports).filter(v => v instanceof NamedType);
   });
 }
