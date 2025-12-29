@@ -128,18 +128,22 @@ function throwError(position: Srcloc, message: string): never {
 }
 class PositionedErrorClass extends Error {
   notes: { position: Srcloc; message: string }[] = [];
+  position: Srcloc;
   constructor(
-    public position: Srcloc,
+    position: Srcloc,
     message: string,
   ) {
     super(message);
+    this.position = position;
   }
 }
 
 // Lezer works with offsets, but our errors need line/column. This utility handles the conversion.
 class LineInfo {
   private lineStarts: number[];
-  constructor(private source: string) {
+  private source: string;
+  constructor(source: string) {
+    this.source = source;
     this.lineStarts = [0];
     for (let i = 0; i < source.length; i++) {
       if (source[i] === "\n") {
