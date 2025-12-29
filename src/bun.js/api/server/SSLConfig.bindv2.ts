@@ -1,4 +1,4 @@
-import * as b from "bindgenv2";
+import * as b from "#bindgenv2";
 
 export const SSLConfigSingleFile = b.union("SSLConfigSingleFile", {
   string: b.String,

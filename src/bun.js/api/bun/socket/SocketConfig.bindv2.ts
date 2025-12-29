@@ -1,4 +1,4 @@
-import * as b from "bindgenv2";
+import * as b from "#bindgenv2";
 import { SSLConfig } from "../../server/SSLConfig.bindv2";
 
 export const BinaryType = b.enumeration("SocketConfigBinaryType", [

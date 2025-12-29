@@ -6,6 +6,9 @@
     "./packages/bun-types",
     "./packages/@types/bun"
   ],
+  "imports": {
+    "#bindgenv2": "./src/codegen/bindgenv2/lib.ts"
+  },
   "devDependencies": {
     "@lezer/common": "^1.2.3",
     "@lezer/cpp": "^1.1.3",
