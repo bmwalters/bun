@@ -8,7 +8,7 @@ let total = 0;
 async function globSources(output, patterns, excludes = []) {
   const paths = [];
   for (const pattern of patterns) {
-    for await (const path of glob(pattern)) {
+    for await (const path of glob(pattern, { cwd: root })) {
       if (excludes?.some(exclude => normalize(path) === normalize(exclude))) {
         continue;
       }
@@ -19,7 +19,7 @@ async function globSources(output, patterns, excludes = []) {
 
   const sources =
     paths
-      .map(path => normalize(relative(root, path).replaceAll("\\", "/")))
+      .map(path => normalize(relative(root, resolve(root, path)).replaceAll("\\", "/")))
       .sort((a, b) => a.localeCompare(b))
       .join("\n")
       .trim() + "\n";
