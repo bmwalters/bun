@@ -185,7 +185,7 @@ register_command(
   CWD
     ${BUN_NODE_FALLBACKS_SOURCE}
   COMMAND
-    ${BUN_EXECUTABLE} run build-fallbacks
+    ${BUN_EXECUTABLE} build-fallbacks.ts
       ${BUN_NODE_FALLBACKS_OUTPUT}
       ${BUN_NODE_FALLBACKS_SOURCES}
   SOURCES
@@ -243,7 +243,6 @@ register_command(
     "Generating ErrorCode.{zig,h}"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_ERROR_CODE_SCRIPT}
       ${CODEGEN_PATH}
   SOURCES
@@ -278,7 +277,6 @@ register_command(
     "Generating ZigGeneratedClasses.{zig,cpp,h}"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_ZIG_GENERATED_CLASSES_SCRIPT}
       ${BUN_ZIG_GENERATED_CLASSES_SOURCES}
       ${CODEGEN_PATH}
@@ -362,7 +360,6 @@ register_command(
     "Generating JavaScript modules"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_JAVASCRIPT_CODEGEN_SCRIPT}
         --debug=${DEBUG}
         ${BUILD_PATH}
@@ -395,7 +392,6 @@ register_command(
     "Bundling Bake Runtime"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_BAKE_RUNTIME_CODEGEN_SCRIPT}
         --debug=${DEBUG}
         --codegen-root=${CODEGEN_PATH}
@@ -419,7 +415,7 @@ string(REPLACE ";" "," BUN_BINDGENV2_SOURCES_COMMA_SEPARATED
   "${BUN_BINDGENV2_SOURCES}")
 
 execute_process(
-  COMMAND ${BUN_EXECUTABLE} run ${BUN_BINDGENV2_SCRIPT}
+  COMMAND ${BUN_EXECUTABLE} ${BUN_BINDGENV2_SCRIPT}
     --command=list-outputs
     --sources=${BUN_BINDGENV2_SOURCES_COMMA_SEPARATED}
     --codegen-path=${CODEGEN_PATH}
@@ -445,7 +441,7 @@ register_command(
   COMMENT
     "Generating bindings (v2)"
   COMMAND
-    ${BUN_EXECUTABLE} run ${BUN_BINDGENV2_SCRIPT}
+    ${BUN_EXECUTABLE} ${BUN_BINDGENV2_SCRIPT}
       --command=generate
       --codegen-path=${CODEGEN_PATH}
       --sources=${BUN_BINDGENV2_SOURCES_COMMA_SEPARATED}
@@ -476,7 +472,6 @@ register_command(
     "Processing \".bind.ts\" files"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_BINDGEN_SCRIPT}
         --debug=${DEBUG}
         --codegen-root=${CODEGEN_PATH}
@@ -508,7 +503,6 @@ register_command(
     "Generating JSSink.{cpp,h}"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_JS_SINK_SCRIPT}
       ${CODEGEN_PATH}
   SOURCES
@@ -580,7 +574,6 @@ foreach(i RANGE 0 ${BUN_OBJECT_LUT_SOURCES_MAX_INDEX})
       ${BUN_OBJECT_LUT_SOURCE}
     COMMAND
       ${BUN_EXECUTABLE}
-        run
         ${BUN_OBJECT_LUT_SCRIPT}
         ${BUN_OBJECT_LUT_SOURCE}
         ${BUN_OBJECT_LUT_OUTPUT}
