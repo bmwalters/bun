@@ -1,6 +1,6 @@
-import { Glob, file, write } from "bun";
-import { join, relative, resolve } from "path";
-import { normalize } from "path/posix";
+import { glob, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
+import { normalize } from "node:path/posix";
 
 const root = resolve(import.meta.dirname, "..");
 let total = 0;
@@ -8,8 +8,7 @@ let total = 0;
 async function globSources(output, patterns, excludes = []) {
   const paths = [];
   for (const pattern of patterns) {
-    const glob = new Glob(pattern);
-    for await (const path of glob.scan()) {
+    for await (const path of glob(pattern)) {
       if (excludes?.some(exclude => normalize(path) === normalize(exclude))) {
         continue;
       }
@@ -25,10 +24,13 @@ async function globSources(output, patterns, excludes = []) {
       .join("\n")
       .trim() + "\n";
 
-  await write(join(root, "cmake", "sources", output), sources);
+  const outputPath = join(root, "cmake", "sources", output);
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, sources);
 }
 
-const input = await file(join(root, "cmake", "Sources.json")).json();
+const inputContent = await readFile(join(root, "cmake", "Sources.json"), "utf8");
+const input = JSON.parse(inputContent);
 
 const start = performance.now();
 for (const item of input) {
