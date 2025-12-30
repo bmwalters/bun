@@ -206,10 +206,10 @@ register_command(
   CWD
     ${BUN_NODE_FALLBACKS_SOURCE}
   COMMAND
-    ${BUN_EXECUTABLE} build
+    ${ESBUILD_EXECUTABLE} ${ESBUILD_ARGS}
       ${BUN_NODE_FALLBACKS_SOURCE}/node_modules/react-refresh/cjs/react-refresh-runtime.development.js
       --outfile=${BUN_REACT_REFRESH_OUTPUT}
-      --target=browser
+      --platform=browser
       --format=cjs
       --minify
       --define:process.env.NODE_ENV=\"'development'\"
