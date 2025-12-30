@@ -577,9 +577,10 @@ pub fn addBunObject(b: *Build, opts: *BunBuildOptions) *Compile {
     });
     root.addImport("bun", bun);
 
-    const obj = b.addObject(.{
+    const obj = b.addLibrary(.{
         .name = if (opts.optimize == .Debug) "bun-debug" else "bun",
         .root_module = root,
+        .linkage = .static,
     });
     configureObj(b, opts, obj);
     if (enableFastBuild(b)) obj.root_module.strip = true;
