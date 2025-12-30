@@ -98,7 +98,7 @@ function bound(binding) {
     endianness: function () {
       return process.arch === "arm64" || process.arch === "x64" //
         ? "LE"
-        : $bundleError("TODO: endianness");
+        : (() => { throw new Error("TODO: endianness"); })()
     },
     freemem: binding.freemem,
     getPriority: binding.getPriority,
@@ -122,7 +122,7 @@ function bound(binding) {
           ? "Darwin"
           : process.platform === "linux"
             ? "Linux"
-            : $bundleError("TODO: type");
+            : (() => { throw new Error("TODO: type"); })()
     },
     uptime: binding.uptime,
     userInfo: binding.userInfo,
@@ -132,7 +132,7 @@ function bound(binding) {
         ? "arm64"
         : process.arch === "x64"
           ? "x86_64"
-          : $bundleError("TODO: machine");
+          : (() => { throw new Error("TODO: machine"); })()
     },
     devNull: process.platform === "win32" ? "\\\\.\\nul" : "/dev/null",
     get EOL() {
