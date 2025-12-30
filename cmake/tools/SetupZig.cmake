@@ -62,33 +62,43 @@ setenv(ZIG_GLOBAL_CACHE_DIR ${ZIG_GLOBAL_CACHE_DIR})
 
 setx(ZIG_PATH ${VENDOR_PATH}/zig)
 
-if(WIN32)
-  setx(ZIG_EXECUTABLE ${ZIG_PATH}/zig.exe)
+if(DEFINED ZIG_EXECUTABLE)
+  set(USING_CUSTOM_ZIG ON)
+  message(STATUS "Using custom Zig executable: ${ZIG_EXECUTABLE}")
+  add_custom_target(clone-zig)
 else()
-  setx(ZIG_EXECUTABLE ${ZIG_PATH}/zig)
+  set(USING_CUSTOM_ZIG OFF)
+  if(WIN32)
+    setx(ZIG_EXECUTABLE ${ZIG_PATH}/zig.exe)
+  else()
+    setx(ZIG_EXECUTABLE ${ZIG_PATH}/zig)
+  endif()
+
+  register_command(
+    TARGET
+      clone-zig
+    COMMENT
+      "Downloading zig"
+    COMMAND
+      ${CMAKE_COMMAND}
+        -DZIG_PATH=${ZIG_PATH}
+        -DZIG_COMMIT=${ZIG_COMMIT}
+        -DENABLE_ASAN=${ENABLE_ASAN}
+        -DENABLE_VALGRIND=${ENABLE_VALGRIND}
+        -DZIG_COMPILER_SAFE=${ZIG_COMPILER_SAFE}
+        -P ${CWD}/cmake/scripts/DownloadZig.cmake
+    SOURCES
+      ${CWD}/cmake/scripts/DownloadZig.cmake
+    OUTPUTS
+      ${ZIG_EXECUTABLE}
+  )
 endif()
 
 set(CMAKE_ZIG_FLAGS
   --cache-dir ${ZIG_LOCAL_CACHE_DIR}
   --global-cache-dir ${ZIG_GLOBAL_CACHE_DIR}
-  --zig-lib-dir ${ZIG_PATH}/lib
 )
 
-register_command(
-  TARGET
-    clone-zig
-  COMMENT
-    "Downloading zig"
-  COMMAND
-    ${CMAKE_COMMAND}
-      -DZIG_PATH=${ZIG_PATH}
-      -DZIG_COMMIT=${ZIG_COMMIT}
-      -DENABLE_ASAN=${ENABLE_ASAN}
-      -DENABLE_VALGRIND=${ENABLE_VALGRIND}
-      -DZIG_COMPILER_SAFE=${ZIG_COMPILER_SAFE}
-      -P ${CWD}/cmake/scripts/DownloadZig.cmake
-  SOURCES
-    ${CWD}/cmake/scripts/DownloadZig.cmake
-  OUTPUTS
-    ${ZIG_EXECUTABLE}
-)
+if(NOT USING_CUSTOM_ZIG)
+  list(APPEND CMAKE_ZIG_FLAGS --zig-lib-dir ${ZIG_PATH}/lib)
+endif()
