@@ -204,7 +204,7 @@ export namespace t {
    *
    * ```ts
    * // foo.bind.ts
-   * import { fn, t } from "bindgen";
+   * import { fn, t } from "#bindgen";
    *
    * export const foo = fn({
    *   args: { bar: t.UTF8String },
@@ -305,7 +305,7 @@ interface FuncOptionsWithVariant extends FuncMetadata {
    * ## Example
    * ```ts
    * // foo.bind.ts
-   * import { fn } from "bindgen";
+   * import { fn } from "#bindgen";
    *
    * export const foo = fn({
    *   variants: [
