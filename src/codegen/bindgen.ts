@@ -7,9 +7,9 @@ import assert from "node:assert";
 import fs from "node:fs";
 import * as path from "node:path";
 import {
-  ArgStrategyChildItem,
+  type ArgStrategyChildItem,
   CodeWriter,
-  Func,
+  type Func,
   NodeValidator,
   Struct,
   TypeImpl,
