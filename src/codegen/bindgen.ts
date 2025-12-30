@@ -1095,7 +1095,7 @@ for (const fileName of [...unsortedFiles].sort()) {
     files.set(zigFile, file);
   }
 
-  const exports = import.meta.require(fileName);
+  const exports = await import(fileName);
 
   // Mark all exported TypeImpl as reachable
   for (let [key, value] of Object.entries(exports)) {
