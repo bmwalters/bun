@@ -91,7 +91,7 @@ export interface DictionaryField {
   type: TypeImpl;
 }
 
-export declare const isType: unique symbol;
+export const isType = Symbol("isType");
 
 const numericTypes = new Set(["f64", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "usize"]);
 
