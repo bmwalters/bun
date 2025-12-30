@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import * as helpers from "../helpers.ts";
 import { NamedType, Type } from "./internal/base.ts";
-import { createRequire } from "node:module";
 
 const USAGE = `\
 Usage: script.ts [options]
@@ -19,10 +18,9 @@ Commands:
 let codegenPath: string;
 let sources: string[];
 
-function getNamedExports(): NamedType[] {
-  const require = createRequire(import.meta.url);
-  return sources.flatMap(path => {
-    const exports = require(path);
+async function getNamedExports(): Promise<NamedType[]> {
+  const exportsList = await Promise.all(sources.map(path => import(path)));
+  return exportsList.flatMap(exports => {
     return Object.values(exports).filter(v => v instanceof NamedType);
   });
 }
@@ -65,21 +63,21 @@ function toZigNamespace(name: string): string {
   return result;
 }
 
-function listOutputs(): void {
+async function listOutputs(): Promise<void> {
   const outputs: string[] = [`${codegenPath}/bindgen_generated.zig`];
-  for (const type of getNamedExports()) {
+  for (const type of await getNamedExports()) {
     if (type.hasCppSource) outputs.push(cppSourcePath(type));
     if (type.hasZigSource) outputs.push(zigSourcePath(type));
   }
   process.stdout.write(outputs.join(";"));
 }
 
-function generate(): void {
+async function generate(): Promise<void> {
   const names = new Set<string>();
   const zigRoot: string[] = [];
   const zigRootInternal: string[] = [];
 
-  const namedExports = getNamedExports();
+  const namedExports = await getNamedExports();
   {
     const namedDependencies = new Set<NamedType>();
     for (const type of namedExports) {
@@ -143,7 +141,7 @@ function generate(): void {
   );
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = helpers.argParse(["command", "codegen-path", "sources", "help"]);
   if (Object.keys(args).length === 0) {
     process.stderr.write(USAGE);
@@ -169,10 +167,10 @@ function main(): void {
 
   switch (command) {
     case "list-outputs":
-      listOutputs();
+      await listOutputs();
       break;
     case "generate":
-      generate();
+      await generate();
       break;
     default:
       if (typeof command === "string") {
