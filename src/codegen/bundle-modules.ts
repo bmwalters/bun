@@ -20,6 +20,11 @@ import { getJS2NativeCPP, getJS2NativeZig } from "./generate-js2native.ts";
 import { cap, declareASCIILiteral, writeIfNotChanged } from "./helpers.ts";
 import { createInternalModuleRegistry } from "./internal-module-registry-scanner.ts";
 import { define } from "./replacements.ts";
+import { init, parse } from "es-module-lexer";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+await init;
 
 const BASE = path.join(import.meta.dirname, "../js");
 const debug = process.argv[2] === "--debug=ON";
@@ -34,13 +39,13 @@ if (!CMAKE_BUILD_ROOT) {
 }
 
 globalThis.CMAKE_BUILD_ROOT = CMAKE_BUILD_ROOT;
-const bundleBuiltinFunctions = require("./bundle-functions").bundleBuiltinFunctions;
+const bundleBuiltinFunctions = require("./bundle-functions.ts").bundleBuiltinFunctions;
 
 const TMP_DIR = path.join(CMAKE_BUILD_ROOT, "tmp_modules");
 const CODEGEN_DIR = path.join(CMAKE_BUILD_ROOT, "codegen");
 const JS_DIR = path.join(CMAKE_BUILD_ROOT, "js");
 
-const t = new Bun.Transpiler({ loader: "tsx" });
+// const t = new Bun.Transpiler({ loader: "tsx" });
 
 let start = performance.now();
 const silent = process.env.BUN_SILENT === "1" || process.env.CLAUDECODE;
@@ -99,20 +104,25 @@ for (let i = 0; i < nativeStartIndex; i++) {
 
     // TODO: there is no reason this cannot be converted automatically.
     // import { ... } from '...' -> `const { ... } = require('...')`
-    const scannedImports = t.scan(input);
-    for (const imp of scannedImports.imports) {
-      if (imp.kind === "import-statement") {
+    const [imports, exports] = parse(input);
+    for (const imp of imports) {
+      if (imp.d === -1) {
+        // Ignore type-only imports
+        if (/^import\s+type\s/.test(input.slice(imp.ss, imp.se))) {
+          continue;
+        }
+
         var isBuiltin = true;
         try {
-          if (!builtinModules.includes(imp.path)) {
-            requireTransformer(imp.path, moduleList[i]);
+          if (!builtinModules.includes(imp.n)) {
+            requireTransformer(imp.n, moduleList[i]);
           }
         } catch {
           isBuiltin = false;
         }
         if (isBuiltin) {
           const err = new Error(
-            `Cannot use ESM import statement within builtin modules. Use require("${imp.path}") instead. See src/js/README.md (from ${moduleList[i]})`,
+            `Cannot use ESM import statement within builtin modules. Use require("${imp.n}") instead. See src/js/README.md (from ${moduleList[i]})`,
           );
           err.name = "BunError";
           err["fileName"] = moduleList[i];
@@ -121,7 +131,8 @@ for (let i = 0; i < nativeStartIndex; i++) {
       }
     }
 
-    if (scannedImports.exports.includes("default") && scannedImports.exports.length > 1) {
+    const exportNames = exports.map(e => e.n);
+    if (exportNames.includes("default") && exportNames.length > 1) {
       const err = new Error(
         `Using \`export default\` AND named exports together in builtin modules is unsupported. See src/js/README.md (from ${moduleList[i]})`,
       );
