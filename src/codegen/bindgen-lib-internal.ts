@@ -2,7 +2,6 @@
 // and checking on input data. The goal is to allow people not aware of
 // various footguns in JavaScript, C++, and the bindings generator to
 // always produce correct code, or bail with an error.
-import { expect } from "bun:test";
 import assert from "node:assert";
 import crypto from "node:crypto";
 import * as path from "node:path";
@@ -806,7 +805,7 @@ export interface TypeDef {
 export function registerFunction(opts: FuncOptions) {
   const snapshot = snapshotCallerLocation();
   const filename = stackTraceFileName(snapshot);
-  expect(filename).toEndWith(".bind.ts");
+  assert(filename.endsWith(".bind.ts"), `Expected filename to end with .bind.ts, got ${filename}`);
   const zigFile = path.relative(src, filename.replace(/\.bind\.ts$/, ".zig"));
   let file = files.get(zigFile);
   if (!file) {
