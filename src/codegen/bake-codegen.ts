@@ -1,7 +1,7 @@
 import assert from "node:assert";
-import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
+import * as esbuild from "esbuild";
 import { argParse, writeIfNotChanged } from "./helpers.ts";
 
 // arg parsing
@@ -32,12 +32,14 @@ function convertZigEnum(zig: string, names: string[]) {
 }
 
 function css(file: string, is_development: boolean): string {
-  const result = spawnSync(process.execPath, ["build", file, "--minify"], {
-    cwd: import.meta.dirname,
-    stdio: ["ignore", "pipe", "pipe"],
+  const result = esbuild.buildSync({
+    entryPoints: [file],
+    minify: true,
+    write: false,
+    bundle: true,
+    loader: { ".css": "css", ".svg": "dataurl" },
   });
-  if (result.status !== 0) throw new Error(result.stderr.toString("utf-8"));
-  return result.stdout.toString("utf-8");
+  return result.outputFiles[0].text;
 }
 
 async function run() {
@@ -47,25 +49,26 @@ async function run() {
   const results = await Promise.allSettled(
     ["client", "server", "error"].map(async file => {
       const side = file === "error" ? "client" : file;
-      let result = await Bun.build({
-        entrypoints: [join(base_dir, `hmr-runtime-${file}.ts`)],
+      let result = await esbuild.build({
+        entryPoints: [join(base_dir, `hmr-runtime-${file}.ts`)],
         define: {
           side: JSON.stringify(side),
           IS_ERROR_RUNTIME: String(file === "error"),
           IS_BUN_DEVELOPMENT: String(!!debug),
-          OVERLAY_CSS: css("../bake/client/overlay.css", !!debug),
+          OVERLAY_CSS: JSON.stringify(css(join(base_dir, "client/overlay.css"), !!debug)),
         },
-        minify: {
-          syntax: !debug,
-        },
-        target: side === "server" ? "bun" : "browser",
-        drop: debug ? [] : ["ASSERT", "DEBUG"],
+        minifySyntax: !debug,
+        target: side === "server" ? "esnext" : "es2022",
+        platform: side === "server" ? "node" : "browser",
+        format: "esm",
         conditions: [side],
+        write: false,
+        bundle: true,
       });
-      if (!result.success) throw new AggregateError(result.logs);
-      assert(result.outputs.length === 1, "must bundle to a single file");
+      if (result.errors.length > 0) throw new AggregateError(result.errors);
+      assert(result.outputFiles.length === 1, "must bundle to a single file");
       // @ts-ignore
-      let code = await result.outputs[0].text();
+      let code = result.outputFiles[0].text;
 
       // A second pass is used to convert global variables into parameters, while
       // allowing for renaming to properly function when minification is enabled.
@@ -89,15 +92,18 @@ async function run() {
 
       writeIfNotChanged(generated_entrypoint, combined_source);
 
-      result = await Bun.build({
-        entrypoints: [generated_entrypoint],
+      result = await esbuild.build({
+        entryPoints: [generated_entrypoint],
         minify: !debug,
-        drop: debug ? [] : ["DEBUG"],
-        target: side === "server" ? "bun" : "browser",
+        target: side === "server" ? "esnext" : "es2022",
+        platform: side === "server" ? "node" : "browser",
+        format: side === "server" ? "esm" : "esm",
+        write: false,
+        bundle: true,
       });
-      if (!result.success) throw new AggregateError(result.logs);
-      assert(result.outputs.length === 1, "must bundle to a single file");
-      code = (await result.outputs[0].text()).replace(`// ${basename(generated_entrypoint)}`, "").trim();
+      if (result.errors.length > 0) throw new AggregateError(result.errors);
+      assert(result.outputFiles.length === 1, "must bundle to a single file");
+      code = result.outputFiles[0].text.replace(`// ${basename(generated_entrypoint)}`, "").trim();
 
       rmSync(generated_entrypoint);
 
