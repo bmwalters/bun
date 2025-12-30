@@ -2769,7 +2769,7 @@ const classes: ClassDefinition[] = [];
   let errors = [];
   for (const file of files) {
     const filepath = path.resolve(file);
-    const result = require(filepath);
+    const result = await import(filepath);
     if (!(result?.default?.length ?? 0)) {
       errors.push(
         new TypeError(
