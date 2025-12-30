@@ -57,6 +57,7 @@ const start = Date.now();
 
 type SyntaxNode = import("@lezer/common").SyntaxNode;
 const { parser: cppParser } = await import("@lezer/cpp");
+const { spawnSync } = await import("child_process");
 const fs = await import("fs");
 const { mkdir } = await import("fs/promises");
 const { join, relative } = await import("path");

@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { join, resolve } from "path";
 
@@ -1054,9 +1055,9 @@ fs.writeFileSync(resolve(outDir + "/JSSink.h"), header());
 fs.writeFileSync(resolve(outDir + "/JSSink.cpp"), await implementation());
 fs.writeFileSync(resolve(outDir + "/JSSink.lut.txt"), lutInput());
 
-Bun.spawnSync(
+spawnSync(
+  process.execPath,
   [
-    process.execPath,
     join(import.meta.dirname, "create-hash-table.ts"),
     resolve(outDir + "/JSSink.lut.txt"),
     join(outDir, "JSSink.lut.h"),

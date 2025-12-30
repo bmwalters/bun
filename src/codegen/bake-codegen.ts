@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { argParse, writeIfNotChanged } from "./helpers.ts";
@@ -31,13 +32,12 @@ function convertZigEnum(zig: string, names: string[]) {
 }
 
 function css(file: string, is_development: boolean): string {
-  const { success, stdout, stderr } = Bun.spawnSync({
-    cmd: [process.execPath, "build", file, "--minify"],
+  const result = spawnSync(process.execPath, ["build", file, "--minify"], {
     cwd: import.meta.dirname,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  if (!success) throw new Error(stderr.toString("utf-8"));
-  return stdout.toString("utf-8");
+  if (result.status !== 0) throw new Error(result.stderr.toString("utf-8"));
+  return result.stdout.toString("utf-8");
 }
 
 async function run() {

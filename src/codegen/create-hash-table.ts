@@ -1,5 +1,5 @@
 import fs from "fs";
-import { spawn } from "bun";
+import { spawnSync } from "child_process";
 import path from "path";
 import { writeIfNotChanged } from "./helpers.ts";
 
@@ -20,26 +20,22 @@ const to_remove = new RegExp(`#if\\s+(!OS\\(${os}\\)|OS\\((${other_oses.join("|"
 const input_preprocessed = to_preprocess.replace(to_remove, "");
 
 console.log("Generating " + output + " from " + input);
-const proc = spawn({
-  cmd: ["perl", create_hash_table, "-"],
-  stdin: "pipe",
-  stdout: "pipe",
-  stderr: "inherit",
+const proc = spawnSync("perl", [create_hash_table, "-"], {
+  input: input_preprocessed,
+  stdio: ["pipe", "pipe", "inherit"],
+  encoding: "utf8",
 });
-proc.stdin.write(input_preprocessed);
-proc.stdin.end();
-await proc.exited;
-if (proc.exitCode !== 0) {
+if (proc.status !== 0) {
   console.log(
     "Failed to generate " +
       output +
       ", create_hash_table exited with " +
-      (proc.exitCode || "") +
-      (proc.signalCode || ""),
+      (proc.status ?? "") +
+      (proc.signal ?? ""),
   );
   process.exit(1);
 }
-let str = await new Response(proc.stdout).text();
+let str = proc.stdout;
 str = str.replaceAll(/^\/\/.*$/gm, "");
 str = str.replaceAll(/^#include.*$/gm, "");
 str = str.replaceAll(`namespace JSC {`, "");

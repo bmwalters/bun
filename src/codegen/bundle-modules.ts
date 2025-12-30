@@ -8,6 +8,7 @@
 // One day, this entire setup should be rewritten, but also it would be cool if Bun natively
 // supported macros that aren't json value -> json value. Otherwise, I'd use a real JS parser/ast
 // library, instead of RegExp hacks.
+import { spawnSync } from "node:child_process";
 import fs from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { builtinModules } from "node:module";
@@ -221,15 +222,14 @@ const config_cli = [
   path.join(TMP_DIR, "modules_out"),
 ];
 verbose("running: ", config_cli);
-const out = Bun.spawnSync({
-  cmd: config_cli,
+const out = spawnSync(config_cli[0], config_cli.slice(1), {
   cwd: process.cwd(),
   env: process.env,
   stdio: ["pipe", "pipe", "pipe"],
 });
-if (out.exitCode !== 0) {
+if (out.status !== 0) {
   console.error(out.stderr.toString());
-  process.exit(out.exitCode);
+  process.exit(out.status ?? 1);
 }
 
 mark("Bundle modules");
