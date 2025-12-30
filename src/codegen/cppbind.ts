@@ -54,28 +54,6 @@ To run manually:
 */
 
 const start = Date.now();
-let isInstalled = false;
-try {
-  const grammarfile = await Bun.file("node_modules/@lezer/cpp/src/cpp.grammar").text();
-  isInstalled = true;
-} catch (e) {}
-if (!isInstalled) {
-  if (process.argv.includes("--already-installed")) {
-    console.error("Lezer C++ grammar is not installed. Please run `bun install` to install it.");
-    process.exit(1);
-  }
-  const r = Bun.spawnSync([process.argv[0], "install", "--frozen-lockfile"], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (r.exitCode !== 0) {
-    console.error(r.stdout.toString());
-    console.error(r.stderr.toString());
-    process.exit(r.exitCode ?? 1);
-  }
-
-  const r2 = Bun.spawnSync([...process.argv, "--already-installed"], { stdio: ["inherit", "inherit", "inherit"] });
-  process.exit(r2.exitCode ?? 1);
-}
 
 type SyntaxNode = import("@lezer/common").SyntaxNode;
 const { parser: cppParser } = await import("@lezer/cpp");
