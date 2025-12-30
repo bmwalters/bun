@@ -59,7 +59,25 @@ export function readdirRecursive(root: string): string[] {
 
 export function resolveSyncOrNull(specifier: string, from: string) {
   try {
-    return Bun.resolveSync(specifier, from);
+    // @ts-ignore
+    if (typeof Bun !== "undefined") {
+      // @ts-ignore
+      return Bun.resolveSync(specifier, from);
+    }
+    
+    const resolved = path.resolve(from, specifier);
+    if (fs.existsSync(resolved)) return resolved;
+    
+    const extensions = [".ts", ".js", ".tsx", ".jsx", ".d.ts"];
+    for (const ext of extensions) {
+      if (fs.existsSync(resolved + ext)) return resolved + ext;
+    }
+    
+    for (const ext of extensions) {
+      if (fs.existsSync(path.join(resolved, "index" + ext))) return path.join(resolved, "index" + ext);
+    }
+
+    return null;
   } catch {
     return null;
   }
