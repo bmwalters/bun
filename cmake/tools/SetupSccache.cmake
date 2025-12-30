@@ -10,7 +10,7 @@ set(SCCACHE_SHARED_CACHE_BUCKET "bun-build-sccache-store")
 function(check_aws_credentials OUT_VAR)
   # Install dependencies first
   execute_process(
-    COMMAND ${BUN_EXECUTABLE} install --frozen-lockfile
+    COMMAND ${NPM_EXECUTABLE} install
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/build-cache
     RESULT_VARIABLE INSTALL_EXIT_CODE
     OUTPUT_VARIABLE INSTALL_OUTPUT
