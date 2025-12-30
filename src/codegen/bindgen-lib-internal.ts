@@ -4,6 +4,7 @@
 // always produce correct code, or bail with an error.
 import { expect } from "bun:test";
 import assert from "node:assert";
+import crypto from "node:crypto";
 import * as path from "node:path";
 import util from "node:util";
 import type { FuncOptions, t } from "./bindgen-lib";
@@ -153,7 +154,7 @@ export class TypeImpl<K extends TypeKind = TypeKind> {
         h += this.data.map(({ key, required, type }) => `${key}:${required}:${type.hash()}`).join(",");
         break;
     }
-    let hash = String(Bun.hash(h));
+    let hash = crypto.createHash("sha256").update(h).digest("hex").slice(0, 16);
     this.#hash = hash;
     return hash;
   }
@@ -1008,8 +1009,8 @@ export class Struct {
   }
 
   hash() {
-    return (this.#hash ??= String(
-      Bun.hash(
+    return (this.#hash ??= 
+      crypto.createHash("sha256").update(
         this.fields
           .map(f => {
             if (f.type instanceof Struct) {
@@ -1018,8 +1019,8 @@ export class Struct {
             return f.name + `:` + f.type;
           })
           .join(","),
-      ),
-    ));
+      ).digest("hex").slice(0, 16)
+    );
   }
 
   name() {
