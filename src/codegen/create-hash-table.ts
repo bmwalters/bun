@@ -1,3 +1,4 @@
+import fs from "fs";
 import { spawn } from "bun";
 import path from "path";
 import { writeIfNotChanged } from "./helpers.ts";
@@ -9,7 +10,7 @@ const platform = process.env.TARGET_PLATFORM ?? process.platform;
 
 const create_hash_table = path.join(import.meta.dirname, "./create_hash_table");
 
-const input_text = await Bun.file(input).text();
+const input_text = fs.readFileSync(input, "utf8");
 const to_preprocess = [...input_text.matchAll(/@begin\s+.+?@end/gs)].map(m => m[0]).join("\n");
 
 const os = platform === "win32" ? "WINDOWS" : platform.toUpperCase();

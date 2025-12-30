@@ -35,7 +35,7 @@
  *
  */
 
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
 
 const args = process.argv.slice(2);
 
@@ -382,7 +382,7 @@ ${entries.map(entry => `        .${escapeZigIdentifier(entry.name)},`).join("\n"
 // CLI interface
 
 // Read strings from stdin
-const input = await Bun.file(inputPath).text();
+const input = readFileSync(inputPath, "utf8");
 const strings: { name: string; value: string }[] = [];
 
 for (const line of input.trim().split("\n")) {

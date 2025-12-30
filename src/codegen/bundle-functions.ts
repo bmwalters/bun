@@ -17,6 +17,7 @@
 // single JSC::SourceProvider and pass start/end positions to each function's
 // JSC::SourceCode. JSC does this, but WebCore does not seem to.
 import assert from "assert";
+import fs from "fs";
 import { readdirSync, rmSync } from "fs";
 import path from "path";
 import { sliceSourceCode } from "./builtin-parser.ts";
@@ -70,7 +71,7 @@ interface BundledBuiltin {
  */
 async function processFileSplit(filename: string): Promise<{ functions: BundledBuiltin[]; internal: boolean }> {
   const basename = path.basename(filename, ".ts");
-  let contents = await Bun.file(filename).text();
+  let contents = fs.readFileSync(filename, "utf8");
 
   contents = applyGlobalReplacements(contents);
   const originalContents = contents;
@@ -266,8 +267,8 @@ async function processFileSplit(filename: string): Promise<{ functions: BundledB
     // const useThis = fn.usesThis;
     const useThis = true;
 
-    // TODO: we should use format=IIFE so we could bundle imports and extra functions.
-    await Bun.write(
+    // TODO: we should use format=Iso we could bundle imports and extra functions.
+    fs.writeFileSync(
       tmpFile,
       `// @ts-nocheck
 // GENERATED TEMP FILE - DO NOT EDIT
@@ -369,6 +370,11 @@ interface BundleBuiltinFunctionsArgs {
 }
 
 export async function bundleBuiltinFunctions({ requireTransformer }: BundleBuiltinFunctionsArgs) {
+  // Ensure tmp_functions directory exists
+  if (!fs.existsSync(TMP_DIR)) {
+    fs.mkdirSync(TMP_DIR, { recursive: true });
+  }
+
   const filesToProcess = readdirSync(SRC_DIR)
     .filter(x => x.endsWith(".ts") && !x.endsWith(".d.ts"))
     .sort();

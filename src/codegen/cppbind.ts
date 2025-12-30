@@ -57,6 +57,7 @@ const start = Date.now();
 
 type SyntaxNode = import("@lezer/common").SyntaxNode;
 const { parser: cppParser } = await import("@lezer/cpp");
+const fs = await import("fs");
 const { mkdir } = await import("fs/promises");
 const { join, relative } = await import("path");
 const { bannedTypes, sharedTypes, typeDeclarations } = await import("./shared-types.ts");
@@ -381,7 +382,7 @@ function processFunction(ctx: ParseContext, node: SyntaxNode, tag: ExportTag): C
 
 type ExportTag = "check_slow" | "zero_is_throw" | "false_is_throw" | "null_is_throw" | "nothrow";
 
-const sharedTypesText = await Bun.file("src/codegen/shared-types.ts").text();
+const sharedTypesText = fs.readFileSync("src/codegen/shared-types.ts", "utf8");
 const sharedTypesLines = sharedTypesText.split("\n");
 let sharedTypesLine = 0;
 let sharedTypesColumn = 0;
@@ -467,7 +468,7 @@ function closest(node: SyntaxNode | null, type: string): SyntaxNode | null {
 type CppParser = typeof cppParser;
 
 async function processFile(parser: CppParser, file: string, allFunctions: CppFn[]) {
-  const sourceCode = await Bun.file(file).text();
+  const sourceCode = fs.readFileSync(file, "utf8");
   if (!sourceCode.includes("[[ZIG_EXPORT(")) return;
 
   const sourceCodeLines = sourceCode.split("\n");
@@ -597,7 +598,7 @@ async function processFile(parser: CppParser, file: string, allFunctions: CppFn[
 }
 
 async function renderError(position: Srcloc, message: string, label: string, color: string) {
-  const fileContent = await Bun.file(position.file).text();
+  const fileContent = fs.readFileSync(position.file, "utf8");
   const lines = fileContent.split("\n");
   const line = lines[position.start.line - 1];
   if (line === undefined) return;
@@ -710,7 +711,7 @@ function generateZigFn(
 
 async function readFileOrEmpty(file: string): Promise<string> {
   try {
-    const fileContents = await Bun.file(file).text();
+    const fileContents = fs.readFileSync(file, "utf8");
     return fileContents;
   } catch (e) {
     return "";
@@ -740,7 +741,7 @@ async function main() {
 
   const parser = cppParser;
 
-  const allCppFiles = (await Bun.file("cmake/sources/CxxSources.txt").text())
+  const allCppFiles = fs.readFileSync("cmake/sources/CxxSources.txt", "utf8")
     .trim()
     .split("\n")
     .map(q => q.trim())
@@ -779,13 +780,13 @@ async function main() {
     resultRaw.join("\n") +
     "\n};\n";
   if ((await readFileOrEmpty(resultFilePath)) !== resultContents) {
-    await Bun.write(resultFilePath, resultContents);
+    fs.writeFileSync(resultFilePath, resultContents);
   }
 
   const resultSourceLinksFilePath = join(dstDir, "cpp.source-links");
   const resultSourceLinksContents = resultSourceLinks.join("\n");
   if ((await readFileOrEmpty(resultSourceLinksFilePath)) !== resultSourceLinksContents) {
-    await Bun.write(resultSourceLinksFilePath, resultSourceLinksContents);
+    fs.writeFileSync(resultSourceLinksFilePath, resultSourceLinksContents);
     const now = Date.now();
     const sin = Math.round(((Math.sin((now / 1000) * 1) + 1) / 2) * 0);
     if (process.env.CI) {
