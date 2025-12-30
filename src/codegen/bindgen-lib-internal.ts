@@ -72,9 +72,9 @@ interface TypeDataDefs {
 }
 type TypeData<K extends TypeKind> = K extends keyof TypeDataDefs ? TypeDataDefs[K] : any;
 
-export const enum NodeValidator {
-  validateInteger = "validateInteger",
-}
+export const NodeValidator = {
+  validateInteger: "validateInteger",
+} as const;
 
 interface Flags {
   nodeValidator?: NodeValidator;
