@@ -33,7 +33,7 @@ function convertZigEnum(zig: string, names: string[]) {
 function css(file: string, is_development: boolean): string {
   const { success, stdout, stderr } = Bun.spawnSync({
     cmd: [process.execPath, "build", file, "--minify"],
-    cwd: import.meta.dir,
+    cwd: import.meta.dirname,
     stdio: ["ignore", "pipe", "pipe"],
   });
   if (!success) throw new Error(stderr.toString("utf-8"));

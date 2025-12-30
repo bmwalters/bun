@@ -20,7 +20,7 @@ import { cap, declareASCIILiteral, writeIfNotChanged } from "./helpers.ts";
 import { createInternalModuleRegistry } from "./internal-module-registry-scanner.ts";
 import { define } from "./replacements.ts";
 
-const BASE = path.join(import.meta.dir, "../js");
+const BASE = path.join(import.meta.dirname, "../js");
 const debug = process.argv[2] === "--debug=ON";
 const CMAKE_BUILD_ROOT = process.argv[3];
 
@@ -481,7 +481,7 @@ writeIfNotChanged(
 writeIfNotChanged(path.join(CODEGEN_DIR, "GeneratedJS2Native.h"), getJS2NativeCPP());
 
 // zig will complain if this file is outside of the module
-const js2nativeZigPath = path.join(import.meta.dir, "../bun.js/bindings/GeneratedJS2Native.zig");
+const js2nativeZigPath = path.join(import.meta.dirname, "../bun.js/bindings/GeneratedJS2Native.zig");
 writeIfNotChanged(js2nativeZigPath, getJS2NativeZig(js2nativeZigPath));
 
 const generatedDTSPath = path.join(CODEGEN_DIR, "generated.d.ts");

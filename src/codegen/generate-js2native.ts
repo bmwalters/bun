@@ -31,7 +31,7 @@ const nativeCalls: NativeCall[] = [];
 const wrapperCalls: WrapperCall[] = [];
 
 const sourceFiles = readdirRecursiveWithExclusionsAndExtensionsSync(
-  path.join(import.meta.dir, "../"),
+  path.join(import.meta.dirname, "../"),
   ["deps", "node_modules", "WebKit"],
   [".cpp", ".zig", ".bind.ts"],
 );
@@ -111,7 +111,7 @@ function symbol(call: Pick<NativeCall, "type" | "symbol" | "filename">) {
 function normalizeSymbolPathPrefix(input: string) {
   input = path.resolve(input);
 
-  const bunDir = path.resolve(path.join(import.meta.dir, "..", ".."));
+  const bunDir = path.resolve(path.join(import.meta.dirname, "..", ".."));
   if (input.startsWith(bunDir)) {
     input = input.slice(bunDir.length);
   }

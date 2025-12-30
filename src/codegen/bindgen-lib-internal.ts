@@ -878,7 +878,7 @@ function snapshotCallerLocation(): string {
   const lines = stack.split("\n");
   let i = 1;
   for (; i < lines.length; i++) {
-    if (!lines[i].includes(import.meta.dir)) {
+    if (!lines[i].includes(import.meta.dirname)) {
       return lines[i];
     }
   }

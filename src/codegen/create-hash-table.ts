@@ -7,7 +7,7 @@ const output = process.argv[3];
 
 const platform = process.env.TARGET_PLATFORM ?? process.platform;
 
-const create_hash_table = path.join(import.meta.dir, "./create_hash_table");
+const create_hash_table = path.join(import.meta.dirname, "./create_hash_table");
 
 const input_text = await Bun.file(input).text();
 const to_preprocess = [...input_text.matchAll(/@begin\s+.+?@end/gs)].map(m => m[0]).join("\n");

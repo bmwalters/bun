@@ -37,7 +37,7 @@ if (!CMAKE_BUILD_ROOT) {
   throw new Error("CMAKE_BUILD_ROOT is not defined");
 }
 
-const SRC_DIR = path.join(import.meta.dir, "../js/builtins");
+const SRC_DIR = path.join(import.meta.dirname, "../js/builtins");
 const CODEGEN_DIR = path.join(CMAKE_BUILD_ROOT, "./codegen");
 const TMP_DIR = path.join(CMAKE_BUILD_ROOT, "./tmp_functions");
 
@@ -755,7 +755,7 @@ JSBuiltinInternalFunctions::JSBuiltinInternalFunctions(JSC::VM& vm) : m_vm(vm)
   // Handle builtin names
   {
     const BunBuiltinNamesHeader = require("fs").readFileSync(
-      path.join(import.meta.dir, "../js/builtins/BunBuiltinNames.h"),
+      path.join(import.meta.dirname, "../js/builtins/BunBuiltinNames.h"),
       "utf8",
     );
     let definedBuiltinNamesStartI = BunBuiltinNamesHeader.indexOf(
