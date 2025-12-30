@@ -5,6 +5,7 @@
 import { expect } from "bun:test";
 import assert from "node:assert";
 import * as path from "node:path";
+import util from "node:util";
 import type { FuncOptions, t } from "./bindgen-lib";
 
 export const src = path.join(import.meta.dirname, "../");
@@ -519,7 +520,7 @@ export class TypeImpl<K extends TypeKind = TypeKind> {
   }
 
   [Symbol.toStringTag] = "Type";
-  [Bun.inspect.custom](depth, options, inspect) {
+  [Symbol.for('nodejs.util.inspect.custom')](depth, options, inspect) {
     return (
       `${options.stylize("Type", "special")} ${
         this.lowersToNamedType() && this.nameDeduplicated
@@ -671,7 +672,7 @@ export function cAbiTypeForEnum(length: number): CAbiType {
 }
 
 export function inspect(value: any) {
-  return Bun.inspect(value, { colors: Bun.enableANSIColors });
+  return util.inspect(value, { colors: process.stdout.isTTY });
 }
 
 export function oneOfImpl(types: TypeImpl[]): TypeImpl {

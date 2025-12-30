@@ -6,6 +6,7 @@
 import assert from "node:assert";
 import fs from "node:fs";
 import * as path from "node:path";
+import util from "node:util";
 import {
   type ArgStrategyChildItem,
   CodeWriter,
@@ -826,7 +827,7 @@ function returnStrategyCppType(strategy: ReturnStrategy): string {
       return "JSC::EncodedJSValue";
     default:
       throw new Error(
-        `TODO: returnStrategyCppType for ${Bun.inspect(strategy satisfies never, { colors: Bun.enableANSIColors })}`,
+        `TODO: returnStrategyCppType for ${util.inspect(strategy satisfies never, { colors: process.stdout.isTTY })}`,
       );
   }
 }
@@ -840,7 +841,7 @@ function returnStrategyZigType(strategy: ReturnStrategy): string {
       return "jsc.JSValue";
     default:
       throw new Error(
-        `TODO: returnStrategyZigType for ${Bun.inspect(strategy satisfies never, { colors: Bun.enableANSIColors })}`,
+        `TODO: returnStrategyZigType for ${util.inspect(strategy satisfies never, { colors: process.stdout.isTTY })}`,
       );
   }
 }
