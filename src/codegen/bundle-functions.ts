@@ -284,7 +284,7 @@ $$capture_start$$(${fn.async ? "async " : ""}${
       } {${fn.source}}).$$capture_end$$;
 `,
     );
-    await Bun.sleep(1);
+    await new Promise(resolve => setTimeout(resolve, 1));
     const build = await Bun.build({
       entrypoints: [tmpFile],
       define,

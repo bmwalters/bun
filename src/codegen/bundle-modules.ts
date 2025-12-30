@@ -69,7 +69,7 @@ async function retry(n, fn) {
     } catch (e) {
       err = e;
       n--;
-      await Bun.sleep(5);
+      await new Promise(resolve => setTimeout(resolve, 5));
     }
   }
   throw err;
