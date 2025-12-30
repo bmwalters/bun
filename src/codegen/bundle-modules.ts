@@ -8,7 +8,6 @@
 // One day, this entire setup should be rewritten, but also it would be cool if Bun natively
 // supported macros that aren't json value -> json value. Otherwise, I'd use a real JS parser/ast
 // library, instead of RegExp hacks.
-import { spawnSync } from "node:child_process";
 import fs from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { builtinModules } from "node:module";
@@ -21,6 +20,7 @@ import { cap, declareASCIILiteral, writeIfNotChanged } from "./helpers.ts";
 import { createInternalModuleRegistry } from "./internal-module-registry-scanner.ts";
 import { define } from "./replacements.ts";
 import { init, parse } from "es-module-lexer";
+import * as esbuild from "esbuild";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -174,7 +174,10 @@ ${processed.result.slice(1).trim()}
     if (!exportOptimization) {
       fileToTranspile = `var $;` + fileToTranspile.replaceAll("__intrinsic__exports", "$");
     }
-    const outputPath = path.join(TMP_DIR, moduleList[i].slice(0, -3) + ".ts");
+
+    // Use .mts extension so esbuild treats the file as ESM (not CommonJS).
+    // Without this, esbuild wraps the code in __commonJS which breaks our export mechanism.
+    const outputPath = path.join(TMP_DIR, moduleList[i].slice(0, -3) + ".mts");
 
     await mkdir(path.dirname(outputPath), { recursive: true });
     if (!fs.existsSync(path.dirname(outputPath))) {
@@ -212,35 +215,34 @@ ${processed.result.slice(1).trim()}
 mark("Preprocess modules");
 
 // directory caching stuff breaks this sometimes. CLI rules
-const config_cli = [
-  process.execPath,
-  "build",
-  ...bundledEntryPoints,
-  ...(debug ? [] : ["--minify-syntax", "--keep-names"]),
-  "--root",
-  TMP_DIR,
-  "--target",
-  "bun",
-  ...builtinModules.map(x => ["--external", x]).flat(),
-  ...Object.keys(define)
-    .map(x => [`--define`, `${x}=${define[x]}`])
-    .flat(),
-  "--define",
-  `IS_BUN_DEVELOPMENT=${String(!!debug)}`,
-  "--define",
-  `__intrinsic__debug=${debug ? "$debug_log_enabled" : "false"}`,
-  "--outdir",
-  path.join(TMP_DIR, "modules_out"),
-];
-verbose("running: ", config_cli);
-const out = spawnSync(config_cli[0], config_cli.slice(1), {
-  cwd: process.cwd(),
-  env: process.env,
-  stdio: ["pipe", "pipe", "pipe"],
-});
-if (out.status !== 0) {
-  console.error(out.stderr.toString());
-  process.exit(out.status ?? 1);
+const defineOptions = {
+  ...define,
+  IS_BUN_DEVELOPMENT: String(!!debug),
+  __intrinsic__debug: debug ? "$debug_log_enabled" : "false",
+};
+
+verbose("running esbuild");
+try {
+  await esbuild.build({
+    entryPoints: bundledEntryPoints,
+    minifySyntax: !debug,
+    // Note: Bun.build --keep-names preserves function names natively without helpers.
+    // esbuild's keepNames adds __defProp/__name helpers that don't work in JSC builtins.
+    // So we disable keepNames here - function names may be minified in debug builds.
+    // TODO: Investigate why var declarations at the top of the file are not visible at runtime.
+    keepNames: false,
+    outbase: TMP_DIR,
+    target: "esnext",
+    external: [...builtinModules, "bun:*"],
+    define: defineOptions,
+    outdir: path.join(TMP_DIR, "modules_out"),
+    bundle: true,
+    format: "esm",
+    platform: "neutral",
+  });
+} catch (e) {
+  console.error(e);
+  process.exit(1);
 }
 
 mark("Bundle modules");
@@ -248,13 +250,15 @@ mark("Bundle modules");
 const outputs = new Map();
 
 for (const entrypoint of bundledEntryPoints) {
-  const file_path = entrypoint.slice(TMP_DIR.length + 1).replace(/\.ts$/, ".js");
+  const file_path = entrypoint.slice(TMP_DIR.length + 1).replace(/\.mts$/, ".js");
   const output = fs.readFileSync(path.join(TMP_DIR, "modules_out", file_path), "utf8");
-  let captured = `(function (){${output.replace("// @bun\n", "").trim()}})`;
+  let captured = `(function (){${output.replace("// @bun\n", "").trim()}\n})`;
   let usesDebug = output.includes("$debug_log");
   let usesAssert = output.includes("$assert");
   captured =
     captured
+      // Transform $$EXPORT$$(value) marker into a return statement expected by bun.
+      // Bun calls this function and uses the returned value as the module exports.
       .replace(/\$\$EXPORT\$\$\((.*)\).\$\$EXPORT_END\$\$;/, "return $1")
       .replace(/]\s*,\s*__(debug|assert)_end__\)/g, ")")
       .replace(/]\s*,\s*__debug_end__\)/g, ")")
@@ -551,25 +555,24 @@ declare module "module" {
 
 mark("Generate Code");
 
-const evalFiles = new Bun.Glob(path.join(BASE, "eval", "*.ts")).scanSync();
-for (const file of evalFiles) {
-  const {
-    outputs: [output],
-  } = await Bun.build({
-    entrypoints: [file],
-
-    // Shrink it.
-    minify: !debug,
-
-    target: "bun",
-    format: "esm",
-    env: "disable",
-    define: {
-      "process.platform": JSON.stringify(process.platform),
-      "process.arch": JSON.stringify(process.arch),
-    },
-  });
-  writeIfNotChanged(path.join(CODEGEN_DIR, "eval", path.basename(file)), await output.text());
+const evalDir = path.join(BASE, "eval");
+if (fs.existsSync(evalDir)) {
+  const evalFiles = fs.readdirSync(evalDir).filter(f => f.endsWith(".ts")).map(f => path.join(evalDir, f));
+  for (const file of evalFiles) {
+    const result = await esbuild.build({
+      entryPoints: [file],
+      minify: !debug,
+      target: "esnext",
+      format: "esm",
+      define: {
+        "process.platform": JSON.stringify(process.platform),
+        "process.arch": JSON.stringify(process.arch),
+      },
+      write: false,
+    });
+    const outputText = result.outputFiles[0].text;
+    writeIfNotChanged(path.join(CODEGEN_DIR, "eval", path.basename(file)), outputText);
+  }
 }
 
 if (!silent) {
