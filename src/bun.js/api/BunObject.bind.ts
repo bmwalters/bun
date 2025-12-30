@@ -1,4 +1,4 @@
-import { fn, t } from "bindgen";
+import { fn, t } from "#bindgen";
 
 export const BracesOptions = t.dictionary({
   tokenize: t.boolean.default(false),

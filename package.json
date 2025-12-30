@@ -7,7 +7,8 @@
     "./packages/@types/bun"
   ],
   "imports": {
-    "#bindgenv2": "./src/codegen/bindgenv2/lib.ts"
+    "#bindgenv2": "./src/codegen/bindgenv2/lib.ts",
+    "#bindgen": "./src/codegen/bindgen-lib.ts"
   },
   "devDependencies": {
     "@lezer/common": "^1.2.3",
