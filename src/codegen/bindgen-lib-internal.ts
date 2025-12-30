@@ -887,9 +887,30 @@ function snapshotCallerLocation(): string {
 }
 
 function stackTraceFileName(line: string): string {
-  const match = /(?:at\s+|\()(.:?[^:\n(\)]*)[^(\n]*$/i.exec(line);
-  assert(match, `Couldn't extract filename from stack trace line: ${line}`);
-  return match[1].replaceAll("\\", "/");
+  let clean = line.trim();
+  if (clean.startsWith("at ")) clean = clean.slice(3).trim();
+  
+  // Handle "Function (file:...)" format
+  if (clean.endsWith(")")) {
+    const openParen = clean.lastIndexOf("(");
+    if (openParen !== -1) {
+      clean = clean.slice(openParen + 1, -1);
+    }
+  }
+
+  // Remove :line:col
+  // Be careful with Windows drive letters (C:\...)
+  // We assume line:col are at the end and are numbers.
+  const match = clean.match(/(.*):(\d+):(\d+)$/);
+  if (match) {
+    clean = match[1];
+  }
+
+  if (clean.startsWith("file://")) {
+      clean = clean.slice(7);
+  }
+  
+  return clean.replaceAll("\\", "/");
 }
 
 export type CAbiType =
