@@ -398,7 +398,7 @@ pub const AST = struct {
         };
     };
 
-    /// https://www.gnu.org/software/bash/manual/bash.html#Bash-Conditional-Expressions
+    /// https://www.gnu.org/software/bash/manual/bash.html_Bash-Conditional-Expressions
     pub const CondExpr = struct {
         op: Op,
         args: ArgList = ArgList.zeroes,
@@ -1069,11 +1069,11 @@ pub const AST = struct {
 
         pub fn memoryCost(this: *const @This()) usize {
             var cost: usize = @sizeOf(CompoundAtom);
-            cost += this.#atomsMemoryCost();
+            cost += this._atomsMemoryCost();
             return cost;
         }
 
-        fn #atomsMemoryCost(this: *const @This()) usize {
+        fn _atomsMemoryCost(this: *const @This()) usize {
             var cost: usize = 0;
             for (this.atoms) |*atom| {
                 cost += atom.memoryCost();
@@ -1147,7 +1147,7 @@ pub const Parser = struct {
 
     /// Main parse function
     ///
-    /// Loosely based on the shell gramar documented in the spec: https://pubs.opengroup.org/onlinepubs/009604499/utilities/xcu_chap02.html#tag_02_10
+    /// Loosely based on the shell gramar documented in the spec: https://pubs.opengroup.org/onlinepubs/009604499/utilities/xcu_chap02.html_tag_02_10
     pub fn parse(self: *Parser) !AST.Script {
         return try self.parse_impl();
     }

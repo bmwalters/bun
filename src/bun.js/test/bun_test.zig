@@ -323,7 +323,7 @@ pub const BunTest = struct {
         buntest_weak: BunTestPtr.Weak,
         phase: RefDataValue,
         ref_count: RefCount,
-        const RefCount = bun.ptr.RefCount(RefData, "ref_count", #destroy, .{});
+        const RefCount = bun.ptr.RefCount(RefData, "ref_count", _destroy, .{});
 
         pub const deref = RefCount.deref;
         pub fn dupe(this: *RefData) *RefData {
@@ -333,7 +333,7 @@ pub const BunTest = struct {
         pub fn hasOneRef(this: *RefData) bool {
             return this.ref_count.hasOneRef();
         }
-        fn #destroy(this: *RefData) void {
+        fn _destroy(this: *RefData) void {
             group.begin(@src());
             defer group.end();
             group.log("refData: {f}", .{this.phase});

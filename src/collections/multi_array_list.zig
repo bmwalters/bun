@@ -21,7 +21,7 @@ pub fn MultiArrayList(comptime T: type) type {
         bytes: [*]align(@alignOf(T)) u8 = undefined,
         len: usize = 0,
         capacity: usize = 0,
-        #allocator: bun.safety.CheckedAllocator = .{},
+        _allocator: bun.safety.CheckedAllocator = .{},
 
         pub const empty: Self = .{
             .bytes = undefined,
@@ -186,7 +186,7 @@ pub fn MultiArrayList(comptime T: type) type {
 
         /// Release all allocated memory.
         pub fn deinit(self: *Self, gpa: Allocator) void {
-            self.#allocator.assertEq(gpa);
+            self._allocator.assertEq(gpa);
             gpa.free(self.allocatedBytes());
             self.* = undefined;
         }
@@ -235,7 +235,7 @@ pub fn MultiArrayList(comptime T: type) type {
 
         /// Extend the list by 1 element. Allocates more memory as necessary.
         pub fn append(self: *Self, gpa: Allocator, elem: T) !void {
-            self.#allocator.set(gpa);
+            self._allocator.set(gpa);
             try self.ensureUnusedCapacity(gpa, 1);
             self.appendAssumeCapacity(elem);
         }
@@ -252,7 +252,7 @@ pub fn MultiArrayList(comptime T: type) type {
         /// index with uninitialized data.
         /// Allocates more memory as necesasry.
         pub fn addOne(self: *Self, allocator: Allocator) Allocator.Error!usize {
-            self.#allocator.set(allocator);
+            self._allocator.set(allocator);
             try self.ensureUnusedCapacity(allocator, 1);
             return self.addOneAssumeCapacity();
         }
@@ -281,7 +281,7 @@ pub fn MultiArrayList(comptime T: type) type {
         /// sets the given index to the specified element.  May reallocate
         /// and invalidate iterators.
         pub fn insert(self: *Self, gpa: Allocator, index: usize, elem: T) !void {
-            self.#allocator.set(gpa);
+            self._allocator.set(gpa);
             try self.ensureUnusedCapacity(gpa, 1);
             self.insertAssumeCapacity(index, elem);
         }
@@ -354,7 +354,7 @@ pub fn MultiArrayList(comptime T: type) type {
         /// Adjust the list's length to `new_len`.
         /// Does not initialize added items, if any.
         pub fn resize(self: *Self, gpa: Allocator, new_len: usize) !void {
-            self.#allocator.set(gpa);
+            self._allocator.set(gpa);
             try self.ensureTotalCapacity(gpa, new_len);
             self.len = new_len;
         }
@@ -363,7 +363,7 @@ pub fn MultiArrayList(comptime T: type) type {
         /// If `new_len` is greater than zero, this may fail to reduce the capacity,
         /// but the data remains intact and the length is updated to new_len.
         pub fn shrinkAndFree(self: *Self, gpa: Allocator, new_len: usize) void {
-            self.#allocator.set(gpa);
+            self._allocator.set(gpa);
             if (new_len == 0) return clearAndFree(self, gpa);
 
             assert(new_len <= self.capacity);
@@ -407,7 +407,7 @@ pub fn MultiArrayList(comptime T: type) type {
         }
 
         pub fn clearAndFree(self: *Self, gpa: Allocator) void {
-            self.#allocator.set(gpa);
+            self._allocator.set(gpa);
             gpa.free(self.allocatedBytes());
             self.* = .{};
         }
@@ -452,7 +452,7 @@ pub fn MultiArrayList(comptime T: type) type {
         /// Modify the array so that it can hold at least `additional_count` **more** items.
         /// Invalidates pointers if additional memory is needed.
         pub fn ensureUnusedCapacity(self: *Self, gpa: Allocator, additional_count: usize) !void {
-            self.#allocator.set(gpa);
+            self._allocator.set(gpa);
             return self.ensureTotalCapacity(gpa, self.len + additional_count);
         }
 
@@ -460,7 +460,7 @@ pub fn MultiArrayList(comptime T: type) type {
         /// Invalidates pointers if additional memory is needed.
         /// `new_capacity` must be greater or equal to `len`.
         pub fn setCapacity(self: *Self, gpa: Allocator, new_capacity: usize) !void {
-            self.#allocator.set(gpa);
+            self._allocator.set(gpa);
             assert(new_capacity >= self.len);
             const new_bytes = try gpa.alignedAlloc(
                 u8,
@@ -540,7 +540,7 @@ pub fn MultiArrayList(comptime T: type) type {
         }
 
         /// This function guarantees a stable sort, i.e the relative order of equal elements is preserved during sorting.
-        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm#Stability
+        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm_Stability
         /// If this guarantee does not matter, `sortUnstable` might be a faster alternative.
         /// `ctx` has the following method:
         /// `fn lessThan(ctx: @TypeOf(ctx), a_index: usize, b_index: usize) bool`
@@ -550,7 +550,7 @@ pub fn MultiArrayList(comptime T: type) type {
 
         /// Sorts only the subsection of items between indices `a` and `b` (excluding `b`)
         /// This function guarantees a stable sort, i.e the relative order of equal elements is preserved during sorting.
-        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm#Stability
+        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm_Stability
         /// If this guarantee does not matter, `sortSpanUnstable` might be a faster alternative.
         /// `ctx` has the following method:
         /// `fn lessThan(ctx: @TypeOf(ctx), a_index: usize, b_index: usize) bool`
@@ -560,7 +560,7 @@ pub fn MultiArrayList(comptime T: type) type {
 
         /// This function does NOT guarantee a stable sort, i.e the relative order of equal elements may change during sorting.
         /// Due to the weaker guarantees of this function, this may be faster than the stable `sort` method.
-        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm#Stability
+        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm_Stability
         /// `ctx` has the following method:
         /// `fn lessThan(ctx: @TypeOf(ctx), a_index: usize, b_index: usize) bool`
         pub fn sortUnstable(self: Self, ctx: anytype) void {
@@ -570,7 +570,7 @@ pub fn MultiArrayList(comptime T: type) type {
         /// Sorts only the subsection of items between indices `a` and `b` (excluding `b`)
         /// This function does NOT guarantee a stable sort, i.e the relative order of equal elements may change during sorting.
         /// Due to the weaker guarantees of this function, this may be faster than the stable `sortSpan` method.
-        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm#Stability
+        /// Read more about stable sorting here: https://en.wikipedia.org/wiki/Sorting_algorithm_Stability
         /// `ctx` has the following method:
         /// `fn lessThan(ctx: @TypeOf(ctx), a_index: usize, b_index: usize) bool`
         pub fn sortSpanUnstable(self: Self, a: usize, b: usize, ctx: anytype) void {

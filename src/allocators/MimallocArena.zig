@@ -2,7 +2,7 @@
 
 const Self = @This();
 
-#heap: if (safety_checks) Owned(*DebugHeap) else *mimalloc.Heap,
+_heap: if (safety_checks) Owned(*DebugHeap) else *mimalloc.Heap,
 
 /// Uses the default thread-local heap. This type is zero-sized.
 ///
@@ -20,14 +20,14 @@ pub const Default = struct {
 ///
 /// This type is a `GenericAllocator`; see `src/allocators.zig`.
 pub const Borrowed = struct {
-    #heap: BorrowedHeap,
+    _heap: BorrowedHeap,
 
     pub fn allocator(self: Borrowed) std.mem.Allocator {
-        return .{ .ptr = self.#heap, .vtable = &c_allocator_vtable };
+        return .{ .ptr = self._heap, .vtable = &c_allocator_vtable };
     }
 
     pub fn getDefault() Borrowed {
-        return .{ .#heap = getThreadHeap() };
+        return .{ ._heap = getThreadHeap() };
     }
 
     pub fn gc(self: Borrowed) void {
@@ -46,15 +46,15 @@ pub const Borrowed = struct {
     }
 
     fn fromOpaque(ptr: *anyopaque) Borrowed {
-        return .{ .#heap = @ptrCast(@alignCast(ptr)) };
+        return .{ ._heap = @ptrCast(@alignCast(ptr)) };
     }
 
     fn getMimallocHeap(self: Borrowed) *mimalloc.Heap {
-        return if (comptime safety_checks) self.#heap.inner else self.#heap;
+        return if (comptime safety_checks) self._heap.inner else self._heap;
     }
 
     fn assertThreadLock(self: Borrowed) void {
-        if (comptime safety_checks) self.#heap.thread_lock.assertLocked();
+        if (comptime safety_checks) self._heap.thread_lock.assertLocked();
     }
 
     fn alignedAlloc(self: Borrowed, len: usize, alignment: Alignment) ?[*]u8 {
@@ -118,7 +118,7 @@ pub fn allocator(self: Self) std.mem.Allocator {
 }
 
 pub fn borrow(self: Self) Borrowed {
-    return .{ .#heap = if (comptime safety_checks) self.#heap.get() else self.#heap };
+    return .{ ._heap = if (comptime safety_checks) self._heap.get() else self._heap };
 }
 
 /// Internally, mimalloc calls mi_heap_get_default()
@@ -159,7 +159,7 @@ pub fn dumpStats(_: Self) void {
 pub fn deinit(self: *Self) void {
     const mimalloc_heap = self.borrow().getMimallocHeap();
     if (comptime safety_checks) {
-        self.#heap.deinit();
+        self._heap.deinit();
     }
     mimalloc.mi_heap_destroy(mimalloc_heap);
     self.* = undefined;
@@ -167,12 +167,12 @@ pub fn deinit(self: *Self) void {
 
 pub fn init() Self {
     const mimalloc_heap = mimalloc.mi_heap_new() orelse bun.outOfMemory();
-    if (comptime !safety_checks) return .{ .#heap = mimalloc_heap };
+    if (comptime !safety_checks) return .{ ._heap = mimalloc_heap };
     const heap: Owned(*DebugHeap) = .new(.{
         .inner = mimalloc_heap,
         .thread_lock = .initLocked(),
     });
-    return .{ .#heap = heap };
+    return .{ ._heap = heap };
 }
 
 pub fn gc(self: Self) void {

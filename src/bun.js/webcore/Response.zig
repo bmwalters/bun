@@ -10,17 +10,17 @@ pub const js = jsc.Codegen.JSResponse;
 pub const fromJS = js.fromJS;
 pub const fromJSDirect = js.fromJSDirect;
 
-#body: Body,
-#init: Init,
-#url: bun.String = bun.String.empty,
-#redirected: bool = false,
+_body: Body,
+_init: Init,
+_url: bun.String = bun.String.empty,
+_redirected: bool = false,
 /// We increment this count in fetch so if JS Response is discarted we can resolve the Body
 /// In the server we use a flag response_protected to protect/unprotect the response
 ref_count: u32 = 1,
-#js_ref: jsc.JSRef = .empty(),
+_js_ref: jsc.JSRef = .empty(),
 
 // We must report a consistent value for this
-#reported_estimated_size: usize = 0,
+_reported_estimated_size: usize = 0,
 
 pub const getText = ResponseMixin.getText;
 pub const getBody = ResponseMixin.getBody;
@@ -34,56 +34,56 @@ pub const getFormData = ResponseMixin.getFormData;
 
 pub fn init(response_init: Init, body: Body, url: bun.String, redirected: bool) Response {
     return Response{
-        .#init = response_init,
-        .#body = body,
-        .#url = url,
-        .#redirected = redirected,
+        ._init = response_init,
+        ._body = body,
+        ._url = url,
+        ._redirected = redirected,
     };
 }
 
 pub inline fn setInit(this: *Response, method: Method, status_code: u16, status_text: bun.String) void {
-    this.#init.method = method;
-    this.#init.status_code = status_code;
-    this.#init.status_text.deref();
-    this.#init.status_text = status_text;
+    this._init.method = method;
+    this._init.status_code = status_code;
+    this._init.status_text.deref();
+    this._init.status_text = status_text;
 }
 pub inline fn setInitHeaders(this: *Response, headers: ?*FetchHeaders) void {
-    if (this.#init.headers) |_headers| {
+    if (this._init.headers) |_headers| {
         _headers.deref();
     }
-    this.#init.headers = headers;
+    this._init.headers = headers;
 }
 pub inline fn getInitStatusCode(this: *Response) u16 {
-    return this.#init.status_code;
+    return this._init.status_code;
 }
 pub inline fn getInitStatusText(this: *Response) bun.String {
-    return this.#init.status_text;
+    return this._init.status_text;
 }
 pub inline fn setUrl(this: *Response, url: bun.String) void {
-    this.#url.deref();
-    this.#url = url;
+    this._url.deref();
+    this._url = url;
 }
 pub inline fn getUTF8Url(this: *Response, allocator: std.mem.Allocator) ZigString.Slice {
-    return this.#url.toUTF8(allocator);
+    return this._url.toUTF8(allocator);
 }
 pub inline fn getUrl(this: *Response) bun.String {
-    return this.#url;
+    return this._url;
 }
 pub inline fn getInitHeaders(this: *Response) ?*FetchHeaders {
-    return this.#init.headers;
+    return this._init.headers;
 }
 pub inline fn swapInitHeaders(this: *Response) ?*FetchHeaders {
-    if (this.#init.headers) |headers| {
-        this.#init.headers = null;
+    if (this._init.headers) |headers| {
+        this._init.headers = null;
         return headers;
     }
     return null;
 }
 pub inline fn getBodyLen(this: *Response) usize {
-    return this.#body.len();
+    return this._body.len();
 }
 pub inline fn getMethod(this: *Response) Method {
-    return this.#init.method;
+    return this._init.method;
 }
 pub fn getFormDataEncoding(this: *Response) bun.JSError!?*bun.FormData.AsyncFormData {
     var content_type_slice: ZigString.Slice = (try this.getContentType()) orelse return null;
@@ -93,28 +93,28 @@ pub fn getFormDataEncoding(this: *Response) bun.JSError!?*bun.FormData.AsyncForm
 }
 
 pub fn estimatedSize(this: *Response) callconv(.c) usize {
-    return this.#reported_estimated_size;
+    return this._reported_estimated_size;
 }
 
 pub fn calculateEstimatedByteSize(this: *Response) void {
-    this.#reported_estimated_size = this.#body.value.estimatedSize() +
-        this.#url.byteSlice().len +
-        this.#init.status_text.byteSlice().len +
+    this._reported_estimated_size = this._body.value.estimatedSize() +
+        this._url.byteSlice().len +
+        this._init.status_text.byteSlice().len +
         @sizeOf(Response);
 }
 
 fn checkBodyStreamRef(this: *Response, globalObject: *JSGlobalObject) void {
-    if (this.#js_ref.tryGet()) |js_value| {
-        if (this.#body.value == .Locked) {
-            if (this.#body.value.Locked.readable.get(globalObject)) |stream| {
+    if (this._js_ref.tryGet()) |js_value| {
+        if (this._body.value == .Locked) {
+            if (this._body.value.Locked.readable.get(globalObject)) |stream| {
                 // we dont hold a strong reference to the stream we will guard it in js.gc.stream
                 // so we avoid cycled references
                 // anyone using Response should not use Locked.readable directly because it dont always owns it
                 // the owner will be always the Response object it self
                 stream.value.ensureStillAlive();
                 js.gc.stream.set(js_value, globalObject, stream.value);
-                this.#body.value.Locked.readable.deinit();
-                this.#body.value.Locked.readable = .{};
+                this._body.value.Locked.readable.deinit();
+                this._body.value.Locked.readable = .{};
             }
         }
     }
@@ -122,7 +122,7 @@ fn checkBodyStreamRef(this: *Response, globalObject: *JSGlobalObject) void {
 pub fn toJS(this: *Response, globalObject: *JSGlobalObject) JSValue {
     this.calculateEstimatedByteSize();
     const js_value = js.toJSUnchecked(globalObject, this);
-    this.#js_ref = .initWeak(js_value);
+    this._js_ref = .initWeak(js_value);
 
     this.checkBodyStreamRef(globalObject);
     return js_value;
@@ -131,14 +131,14 @@ pub fn toJS(this: *Response, globalObject: *JSGlobalObject) JSValue {
 pub inline fn getBodyValue(
     this: *Response,
 ) *Body.Value {
-    return &this.#body.value;
+    return &this._body.value;
 }
 
 pub inline fn getBodyReadableStream(
     this: *Response,
     globalObject: *JSGlobalObject,
 ) ?jsc.WebCore.ReadableStream {
-    if (this.#js_ref.tryGet()) |js_ref| {
+    if (this._js_ref.tryGet()) |js_ref| {
         if (js.gc.stream.get(js_ref)) |stream| {
             // JS is always source of truth for the stream
             return jsc.WebCore.ReadableStream.fromJS(stream, globalObject) catch |err| {
@@ -147,25 +147,25 @@ pub inline fn getBodyReadableStream(
             };
         }
     }
-    if (this.#body.value == .Locked) {
-        return this.#body.value.Locked.readable.get(globalObject);
+    if (this._body.value == .Locked) {
+        return this._body.value.Locked.readable.get(globalObject);
     }
     return null;
 }
 pub inline fn detachReadableStream(this: *Response, globalObject: *jsc.JSGlobalObject) void {
-    if (this.#js_ref.tryGet()) |js_ref| {
+    if (this._js_ref.tryGet()) |js_ref| {
         js.gc.stream.clear(js_ref, globalObject);
     }
-    if (this.#body.value == .Locked) {
-        var old = this.#body.value.Locked.readable;
+    if (this._body.value == .Locked) {
+        var old = this._body.value.Locked.readable;
         old.deinit();
-        this.#body.value.Locked.readable = .{};
+        this._body.value.Locked.readable = .{};
     }
 }
 pub inline fn setSizeHint(this: *Response, size_hint: Blob.SizeType) void {
-    if (this.#body.value == .Locked) {
-        this.#body.value.Locked.size_hint = size_hint;
-        if (this.#body.value.Locked.readable.get(this.#body.value.Locked.global)) |readable| {
+    if (this._body.value == .Locked) {
+        this._body.value.Locked.size_hint = size_hint;
+        if (this._body.value.Locked.readable.get(this._body.value.Locked.global)) |readable| {
             if (readable.ptr == .Bytes) {
                 readable.ptr.Bytes.size_hint = size_hint;
             }
@@ -181,7 +181,7 @@ pub export fn jsFunctionRequestOrResponseHasBodyValue(_: *jsc.JSGlobalObject, ca
     }
 
     if (this_value.as(Response)) |response| {
-        return jsc.JSValue.jsBoolean(!response.#body.value.isDefinitelyEmpty());
+        return jsc.JSValue.jsBoolean(!response._body.value.isDefinitelyEmpty());
     } else if (this_value.as(Request)) |request| {
         return jsc.JSValue.jsBoolean(!request.getBodyValue().isDefinitelyEmpty());
     }
@@ -198,7 +198,7 @@ pub export fn jsFunctionGetCompleteRequestOrResponseBodyValueAsArrayBuffer(globa
 
     const body: *Body.Value = brk: {
         if (this_value.as(Response)) |response| {
-            break :brk &response.#body.value;
+            break :brk &response._body.value;
         } else if (this_value.as(Request)) |request| {
             break :brk request.getBodyValue();
         }
@@ -227,11 +227,11 @@ pub export fn jsFunctionGetCompleteRequestOrResponseBodyValueAsArrayBuffer(globa
 pub fn getFetchHeaders(
     this: *Response,
 ) ?*FetchHeaders {
-    return this.#init.headers;
+    return this._init.headers;
 }
 
 pub inline fn statusCode(this: *const Response) u16 {
-    return this.#init.status_code;
+    return this._init.status_code;
 }
 
 pub fn redirectLocation(this: *const Response) ?[]const u8 {
@@ -239,7 +239,7 @@ pub fn redirectLocation(this: *const Response) ?[]const u8 {
 }
 
 pub fn header(this: *const Response, name: bun.webcore.FetchHeaders.HTTPHeaderName) ?[]const u8 {
-    return if (try (this.#init.headers orelse return null).fastGet(name)) |str|
+    return if (try (this._init.headers orelse return null).fastGet(name)) |str|
         str.slice()
     else
         null;
@@ -249,7 +249,7 @@ pub const Props = struct {};
 
 pub fn writeFormat(this: *Response, comptime Formatter: type, formatter: *Formatter, writer: anytype, comptime enable_ansi_colors: bool) !void {
     const Writer = @TypeOf(writer);
-    try writer.print("Response ({f}) {{\n", .{bun.fmt.size(this.#body.len(), .{})});
+    try writer.print("Response ({f}) {{\n", .{bun.fmt.size(this._body.len(), .{})});
 
     {
         formatter.indent += 1;
@@ -263,20 +263,20 @@ pub fn writeFormat(this: *Response, comptime Formatter: type, formatter: *Format
 
         try formatter.writeIndent(Writer, writer);
         try writer.writeAll(comptime Output.prettyFmt("<r>url<d>:<r> \"", enable_ansi_colors));
-        try writer.print(comptime Output.prettyFmt("<r><b>{f}<r>", enable_ansi_colors), .{this.#url});
+        try writer.print(comptime Output.prettyFmt("<r><b>{f}<r>", enable_ansi_colors), .{this._url});
         try writer.writeAll("\"");
         try formatter.printComma(Writer, writer, enable_ansi_colors);
         try writer.writeAll("\n");
 
         try formatter.writeIndent(Writer, writer);
         try writer.writeAll(comptime Output.prettyFmt("<r>status<d>:<r> ", enable_ansi_colors));
-        try formatter.printAs(.Double, Writer, writer, jsc.JSValue.jsNumber(this.#init.status_code), .NumberObject, enable_ansi_colors);
+        try formatter.printAs(.Double, Writer, writer, jsc.JSValue.jsNumber(this._init.status_code), .NumberObject, enable_ansi_colors);
         try formatter.printComma(Writer, writer, enable_ansi_colors);
         try writer.writeAll("\n");
 
         try formatter.writeIndent(Writer, writer);
         try writer.writeAll(comptime Output.prettyFmt("<r>statusText<d>:<r> ", enable_ansi_colors));
-        try writer.print(comptime Output.prettyFmt("<r>\"<b>{f}<r>\"", enable_ansi_colors), .{this.#init.status_text});
+        try writer.print(comptime Output.prettyFmt("<r>\"<b>{f}<r>\"", enable_ansi_colors), .{this._init.status_text});
         try formatter.printComma(Writer, writer, enable_ansi_colors);
         try writer.writeAll("\n");
 
@@ -288,12 +288,12 @@ pub fn writeFormat(this: *Response, comptime Formatter: type, formatter: *Format
 
         try formatter.writeIndent(Writer, writer);
         try writer.writeAll(comptime Output.prettyFmt("<r>redirected<d>:<r> ", enable_ansi_colors));
-        try formatter.printAs(.Boolean, Writer, writer, jsc.JSValue.jsBoolean(this.#redirected), .BooleanObject, enable_ansi_colors);
+        try formatter.printAs(.Boolean, Writer, writer, jsc.JSValue.jsBoolean(this._redirected), .BooleanObject, enable_ansi_colors);
         try formatter.printComma(Writer, writer, enable_ansi_colors);
         try writer.writeAll("\n");
 
         formatter.resetLine();
-        try this.#body.writeFormat(Formatter, formatter, writer, enable_ansi_colors);
+        try this._body.writeFormat(Formatter, formatter, writer, enable_ansi_colors);
     }
     try writer.writeAll("\n");
     try formatter.writeIndent(Writer, writer);
@@ -302,7 +302,7 @@ pub fn writeFormat(this: *Response, comptime Formatter: type, formatter: *Format
 }
 
 pub fn isOK(this: *const Response) bool {
-    return this.#init.status_code >= 200 and this.#init.status_code <= 299;
+    return this._init.status_code >= 200 and this._init.status_code <= 299;
 }
 
 pub fn getURL(
@@ -310,14 +310,14 @@ pub fn getURL(
     globalThis: *jsc.JSGlobalObject,
 ) jsc.JSValue {
     // https://developer.mozilla.org/en-US/docs/Web/API/Response/url
-    return this.#url.toJS(globalThis);
+    return this._url.toJS(globalThis);
 }
 
 pub fn getResponseType(
     this: *Response,
     globalThis: *jsc.JSGlobalObject,
 ) jsc.JSValue {
-    if (this.#init.status_code < 200) {
+    if (this._init.status_code < 200) {
         return bun.String.static("error").toJS(globalThis);
     }
 
@@ -329,7 +329,7 @@ pub fn getStatusText(
     globalThis: *jsc.JSGlobalObject,
 ) jsc.JSValue {
     // https://developer.mozilla.org/en-US/docs/Web/API/Response/statusText
-    return this.#init.status_text.toJS(globalThis);
+    return this._init.status_text.toJS(globalThis);
 }
 
 pub fn getRedirected(
@@ -337,7 +337,7 @@ pub fn getRedirected(
     _: *jsc.JSGlobalObject,
 ) jsc.JSValue {
     // https://developer.mozilla.org/en-US/docs/Web/API/Response/redirected
-    return JSValue.jsBoolean(this.#redirected);
+    return JSValue.jsBoolean(this._redirected);
 }
 
 pub fn getOK(
@@ -349,18 +349,18 @@ pub fn getOK(
 }
 
 fn getOrCreateHeaders(this: *Response, globalThis: *jsc.JSGlobalObject) bun.JSError!*FetchHeaders {
-    if (this.#init.headers == null) {
-        this.#init.headers = FetchHeaders.createEmpty();
+    if (this._init.headers == null) {
+        this._init.headers = FetchHeaders.createEmpty();
 
-        if (this.#body.value == .Blob) {
-            const content_type = this.#body.value.Blob.content_type;
+        if (this._body.value == .Blob) {
+            const content_type = this._body.value.Blob.content_type;
             if (content_type.len > 0) {
-                try this.#init.headers.?.put(.ContentType, content_type, globalThis);
+                try this._init.headers.?.put(.ContentType, content_type, globalThis);
             }
         }
     }
 
-    return this.#init.headers.?;
+    return this._init.headers.?;
 }
 
 pub fn getHeaders(
@@ -390,10 +390,10 @@ pub fn doClone(
     }
 
     // Update the original response's body cache with the new teed stream.
-    // At this point, this.#body.value.Locked.readable still holds the teed stream
+    // At this point, this._body.value.Locked.readable still holds the teed stream
     // because checkBodyStreamRef hasn't been called on the original response yet.
-    if (this.#body.value == .Locked) {
-        if (this.#body.value.Locked.readable.get(globalThis)) |readable| {
+    if (this._body.value == .Locked) {
+        if (this._body.value.Locked.readable.get(globalThis)) |readable| {
             js.bodySetCached(this_value, globalThis, readable.value);
         }
     }
@@ -412,25 +412,25 @@ pub fn cloneValue(
     globalThis: *JSGlobalObject,
 ) bun.JSError!Response {
     var body = brk: {
-        if (this.#js_ref.tryGet()) |js_ref| {
+        if (this._js_ref.tryGet()) |js_ref| {
             if (js.gc.stream.get(js_ref)) |stream| {
                 var readable = try jsc.WebCore.ReadableStream.fromJS(stream, globalThis);
                 if (readable != null) {
-                    break :brk try this.#body.cloneWithReadableStream(globalThis, &readable.?);
+                    break :brk try this._body.cloneWithReadableStream(globalThis, &readable.?);
                 }
             }
         }
 
-        break :brk try this.#body.clone(globalThis);
+        break :brk try this._body.clone(globalThis);
     };
     errdefer body.deinit(bun.default_allocator);
-    var _init = try this.#init.clone(globalThis);
+    var _init = try this._init.clone(globalThis);
     errdefer _init.deinit(bun.default_allocator);
     return Response{
-        .#body = body,
-        .#init = _init,
-        .#url = this.#url.clone(),
-        .#redirected = this.#redirected,
+        ._body = body,
+        ._init = _init,
+        ._url = this._url.clone(),
+        ._redirected = this._redirected,
     };
 }
 
@@ -443,13 +443,13 @@ pub fn getStatus(
     _: *jsc.JSGlobalObject,
 ) jsc.JSValue {
     // https://developer.mozilla.org/en-US/docs/Web/API/Response/status
-    return JSValue.jsNumber(this.#init.status_code);
+    return JSValue.jsNumber(this._init.status_code);
 }
 
 fn destroy(this: *Response) void {
-    this.#init.deinit(bun.default_allocator);
-    this.#body.deinit(bun.default_allocator);
-    this.#url.deref();
+    this._init.deinit(bun.default_allocator);
+    this._body.deinit(bun.default_allocator);
+    this._url.deref();
 
     bun.destroy(this);
 }
@@ -470,22 +470,22 @@ pub fn unref(this: *Response) void {
 pub fn finalize(
     this: *Response,
 ) callconv(.c) void {
-    this.#js_ref.finalize();
+    this._js_ref.finalize();
     this.unref();
 }
 
 pub fn getContentType(
     this: *Response,
 ) bun.JSError!?ZigString.Slice {
-    if (this.#init.headers) |headers| {
+    if (this._init.headers) |headers| {
         if (headers.fastGet(.ContentType)) |value| {
             return value.toSlice(bun.default_allocator);
         }
     }
 
-    if (this.#body.value == .Blob) {
-        if (this.#body.value.Blob.content_type.len > 0)
-            return ZigString.Slice.fromUTF8NeverFree(this.#body.value.Blob.content_type);
+    if (this._body.value == .Blob) {
+        if (this._body.value.Blob.content_type.len > 0)
+            return ZigString.Slice.fromUTF8NeverFree(this._body.value.Blob.content_type);
     }
 
     return null;
@@ -496,23 +496,23 @@ pub fn constructJSON(
     callframe: *jsc.CallFrame,
 ) bun.JSError!JSValue {
     const args_list = callframe.arguments_old(2);
-    // https://github.com/remix-run/remix/blob/db2c31f64affb2095e4286b91306b96435967969/packages/remix-server-runtime/responses.ts#L4
+    // https://github.com/remix-run/remix/blob/db2c31f64affb2095e4286b91306b96435967969/packages/remix-server-runtime/responses.ts_L4
     var args = jsc.CallFrame.ArgumentsSlice.init(globalThis.bunVM(), args_list.ptr[0..args_list.len]);
 
     var response = Response{
-        .#body = Body{
+        ._body = Body{
             .value = .{ .Empty = {} },
         },
-        .#init = Response.Init{
+        ._init = Response.Init{
             .status_code = 200,
         },
-        .#url = bun.String.empty,
+        ._url = bun.String.empty,
     };
     var did_succeed = false;
     defer {
         if (!did_succeed) {
-            response.#body.deinit(bun.default_allocator);
-            response.#init.deinit(bun.default_allocator);
+            response._body.deinit(bun.default_allocator);
+            response._init.deinit(bun.default_allocator);
         }
     }
     const json_value = args.nextEat() orelse jsc.JSValue.zero;
@@ -541,14 +541,14 @@ pub fn constructJSON(
         if (!str.isEmpty()) {
             if (str.value.WTFStringImpl.toUTF8IfNeeded(bun.default_allocator)) |bytes| {
                 defer str.deref();
-                response.#body.value = .{
+                response._body.value = .{
                     .InternalBlob = InternalBlob{
                         .bytes = std.array_list.Managed(u8).fromOwnedSlice(bun.default_allocator, @constCast(bytes.slice())),
                         .was_string = true,
                     },
                 };
             } else {
-                response.#body.value = Body.Value{
+                response._body.value = Body.Value{
                     .WTFStringImpl = str.value.WTFStringImpl,
                 };
             }
@@ -557,10 +557,10 @@ pub fn constructJSON(
 
     if (args.nextEat()) |arg_init| {
         if (arg_init.isUndefinedOrNull()) {} else if (arg_init.isNumber()) {
-            response.#init.status_code = @as(u16, @intCast(@min(@max(0, arg_init.toInt32()), std.math.maxInt(u16))));
+            response._init.status_code = @as(u16, @intCast(@min(@max(0, arg_init.toInt32()), std.math.maxInt(u16))));
         } else {
             if (Response.Init.init(globalThis, arg_init) catch |err| if (err == error.JSError) return .zero else null) |_init| {
-                response.#init = _init;
+                response._init = _init;
             }
         }
     }
@@ -596,20 +596,20 @@ pub fn constructRedirectImpl(
     callframe: *jsc.CallFrame,
 ) bun.JSError!Response {
     var args_list = callframe.arguments_old(4);
-    // https://github.com/remix-run/remix/blob/db2c31f64affb2095e4286b91306b96435967969/packages/remix-server-runtime/responses.ts#L4
+    // https://github.com/remix-run/remix/blob/db2c31f64affb2095e4286b91306b96435967969/packages/remix-server-runtime/responses.ts_L4
     var args = jsc.CallFrame.ArgumentsSlice.init(globalThis.bunVM(), args_list.ptr[0..args_list.len]);
 
     var url_string_slice = ZigString.Slice.empty;
     defer url_string_slice.deinit();
     var response: Response = brk: {
         var response = Response{
-            .#init = Response.Init{
+            ._init = Response.Init{
                 .status_code = 302,
             },
-            .#body = Body{
+            ._body = Body{
                 .value = .{ .Empty = {} },
             },
-            .#url = bun.String.empty,
+            ._url = bun.String.empty,
         };
 
         const url_string_value = args.nextEat() orelse jsc.JSValue.zero;
@@ -622,20 +622,20 @@ pub fn constructRedirectImpl(
         var did_succeed = false;
         defer {
             if (!did_succeed) {
-                response.#body.deinit(bun.default_allocator);
-                response.#init.deinit(bun.default_allocator);
+                response._body.deinit(bun.default_allocator);
+                response._init.deinit(bun.default_allocator);
             }
         }
 
         if (args.nextEat()) |arg_init| {
             if (arg_init.isUndefinedOrNull()) {} else if (arg_init.isNumber()) {
-                response.#init.status_code = try validateRedirectStatusCode(globalThis, arg_init.toInt32());
+                response._init.status_code = try validateRedirectStatusCode(globalThis, arg_init.toInt32());
             } else if (try Response.Init.init(globalThis, arg_init)) |_init| {
-                errdefer response.#init.deinit(bun.default_allocator);
-                response.#init = _init;
+                errdefer response._init.deinit(bun.default_allocator);
+                response._init = _init;
 
                 if (_init.status_code != 200) {
-                    response.#init.status_code = try validateRedirectStatusCode(globalThis, _init.status_code);
+                    response._init.status_code = try validateRedirectStatusCode(globalThis, _init.status_code);
                 }
             }
         }
@@ -647,8 +647,8 @@ pub fn constructRedirectImpl(
         break :brk response;
     };
 
-    response.#init.headers = try response.getOrCreateHeaders(globalThis);
-    var headers_ref = response.#init.headers.?;
+    response._init.headers = try response.getOrCreateHeaders(globalThis);
+    var headers_ref = response._init.headers.?;
     try headers_ref.put(.Location, url_string_slice.slice(), globalThis);
     return response;
 }
@@ -660,17 +660,17 @@ pub fn constructError(
     const response = bun.new(
         Response,
         Response{
-            .#init = Response.Init{
+            ._init = Response.Init{
                 .status_code = 0,
             },
-            .#body = Body{
+            ._body = Body{
                 .value = .{ .Empty = {} },
             },
         },
     );
 
     const js_value = response.toJS(globalThis);
-    response.#js_ref = .initWeak(js_value);
+    response._js_ref = .initWeak(js_value);
     return js_value;
 }
 
@@ -684,14 +684,14 @@ pub fn constructor(globalThis: *jsc.JSGlobalObject, callframe: *jsc.CallFrame, j
                     return globalThis.throwInvalidArguments("new Response(s3File) do not support ResponseInit options", .{});
                 }
                 var response: Response = .{
-                    .#init = Response.Init{
+                    ._init = Response.Init{
                         .status_code = 302,
                     },
-                    .#body = Body{
+                    ._body = Body{
                         .value = .{ .Empty = {} },
                     },
-                    .#url = bun.String.empty,
-                    .#js_ref = .initWeak(js_this),
+                    ._url = bun.String.empty,
+                    ._js_ref = .initWeak(js_this),
                 };
 
                 const credentials = blob.store.?.data.s3.getCredentials();
@@ -703,9 +703,9 @@ pub fn constructor(globalThis: *jsc.JSGlobalObject, callframe: *jsc.CallFrame, j
                     return s3.throwSignError(sign_err, globalThis);
                 };
                 defer result.deinit();
-                response.#init.headers = try response.getOrCreateHeaders(globalThis);
-                response.#redirected = true;
-                var headers_ref = response.#init.headers.?;
+                response._init.headers = try response.getOrCreateHeaders(globalThis);
+                response._redirected = true;
+                var headers_ref = response._init.headers.?;
                 try headers_ref.put(.Location, result.url, globalThis);
                 return bun.new(Response, response);
             }
@@ -747,17 +747,17 @@ pub fn constructor(globalThis: *jsc.JSGlobalObject, callframe: *jsc.CallFrame, j
     }
 
     var response = bun.new(Response, Response{
-        .#body = body,
-        .#init = _init,
-        .#js_ref = .initWeak(js_this),
+        ._body = body,
+        ._init = _init,
+        ._js_ref = .initWeak(js_this),
     });
 
-    if (response.#body.value == .Blob and
-        response.#init.headers != null and
-        response.#body.value.Blob.content_type.len > 0 and
-        !response.#init.headers.?.fastHas(.ContentType))
+    if (response._body.value == .Blob and
+        response._init.headers != null and
+        response._body.value.Blob.content_type.len > 0 and
+        !response._init.headers.?.fastHas(.ContentType))
     {
-        try response.#init.headers.?.put(.ContentType, response.#body.value.Blob.content_type, globalThis);
+        try response._init.headers.?.put(.ContentType, response._body.value.Blob.content_type, globalThis);
     }
 
     response.calculateEstimatedByteSize();
@@ -810,7 +810,7 @@ pub const Init = struct {
             }
 
             if (response_init.asDirect(Response)) |resp| {
-                return try resp.#init.clone(globalThis);
+                return try resp._init.clone(globalThis);
             }
         }
 
@@ -884,7 +884,7 @@ pub fn @"200"(globalThis: *jsc.JSGlobalObject) Response {
 
 inline fn emptyWithStatus(_: *jsc.JSGlobalObject, status: u16) Response {
     return bun.new(Response, .{
-        .#body = Body{
+        ._body = Body{
             .value = Body.Value{ .Null = {} },
         },
         .init = Init{

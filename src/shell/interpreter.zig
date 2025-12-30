@@ -25,7 +25,7 @@
 //! Once all these pieces come together, this ends up being a:
 //! "state-machine based [tree-walking], [trampoline]-driven [continuation-passing style] interpreter"
 //!
-//! [tree-walking]: https://en.wikipedia.org/wiki/Interpreter_(computing)#Abstract_syntax_tree_interpreters
+//! [tree-walking]: https://en.wikipedia.org/wiki/Interpreter_(computing)_Abstract_syntax_tree_interpreters
 //! [trampoline]:   https://en.wikipedia.org/wiki/Trampoline_(computing)
 //! [continuation-passing style]: https://en.wikipedia.org/wiki/Continuation-passing_style
 //!
@@ -324,7 +324,7 @@ pub const Interpreter = struct {
     /// this because stdin/stdout/stderr changes a lot and we don't want to copy
     /// this `ShellExecEnv` struct too much.
     ///
-    /// More info here: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_12
+    /// More info here: https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html_tag_18_12
     pub const ShellExecEnv = struct {
         kind: Kind = .normal,
 
@@ -669,7 +669,7 @@ pub const Interpreter = struct {
         }
     };
 
-    fn #computeEstimatedSizeForGC(this: *const ThisInterpreter) usize {
+    fn _computeEstimatedSizeForGC(this: *const ThisInterpreter) usize {
         var size: usize = @sizeOf(ThisInterpreter);
         size += this.args.memoryCost();
         size += this.root_shell.memoryCost();
@@ -683,7 +683,7 @@ pub const Interpreter = struct {
     }
 
     pub fn memoryCost(this: *const ThisInterpreter) usize {
-        return this.#computeEstimatedSizeForGC();
+        return this._computeEstimatedSizeForGC();
     }
 
     pub fn estimatedSize(this: *const ThisInterpreter) usize {
@@ -755,7 +755,7 @@ pub const Interpreter = struct {
 
         interpreter.flags.quiet = quiet;
         interpreter.globalThis = globalThis;
-        interpreter.estimated_size_for_gc = interpreter.#computeEstimatedSizeForGC();
+        interpreter.estimated_size_for_gc = interpreter._computeEstimatedSizeForGC();
 
         const js_value = Bun__createShellInterpreter(
             globalThis,
