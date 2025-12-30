@@ -19,11 +19,11 @@
 import assert from "assert";
 import { readdirSync, rmSync } from "fs";
 import path from "path";
-import { sliceSourceCode } from "./builtin-parser";
-import { createAssertClientJS, createLogClientJS } from "./client-js";
-import { getJS2NativeDTS } from "./generate-js2native";
-import { addCPPCharArray, cap, low, writeIfNotChanged } from "./helpers";
-import { applyGlobalReplacements, define } from "./replacements";
+import { sliceSourceCode } from "./builtin-parser.ts";
+import { createAssertClientJS, createLogClientJS } from "./client-js.ts";
+import { getJS2NativeDTS } from "./generate-js2native.ts";
+import { addCPPCharArray, cap, low, writeIfNotChanged } from "./helpers.ts";
+import { applyGlobalReplacements, define } from "./replacements.ts";
 
 const PARALLEL = false;
 const KEEP_TMP = true;

@@ -1,8 +1,8 @@
 // @ts-nocheck
 import path from "path";
-import jsclasses from "./../bun.js/bindings/js_classes";
-import { InvalidThisBehavior, type ClassDefinition, type Field } from "./class-definitions";
-import { camelCase, pascalCase, writeIfNotChanged } from "./helpers";
+import jsclasses from "./../bun.js/bindings/js_classes.ts";
+import { InvalidThisBehavior, type ClassDefinition, type Field } from "./class-definitions.ts";
+import { camelCase, pascalCase, writeIfNotChanged } from "./helpers.ts";
 
 if (process.env.BUN_SILENT === "1") {
   console.log = () => {};

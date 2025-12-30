@@ -4,7 +4,7 @@
 // For the actual parsing, see replacements.ts
 
 import path, { basename, sep } from "path";
-import { cap, readdirRecursiveWithExclusionsAndExtensionsSync } from "./helpers";
+import { cap, readdirRecursiveWithExclusionsAndExtensionsSync } from "./helpers.ts";
 
 //
 interface NativeCall {

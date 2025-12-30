@@ -1,6 +1,6 @@
 import { spawn } from "bun";
 import path from "path";
-import { writeIfNotChanged } from "./helpers";
+import { writeIfNotChanged } from "./helpers.ts";
 
 const input = process.argv[2];
 const output = process.argv[3];

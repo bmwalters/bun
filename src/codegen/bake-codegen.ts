@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
-import { argParse, writeIfNotChanged } from "./helpers";
+import { argParse, writeIfNotChanged } from "./helpers.ts";
 
 // arg parsing
 let { "codegen-root": codegenRoot, debug, ...rest } = argParse(["codegen-root", "debug"]);

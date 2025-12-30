@@ -59,7 +59,7 @@ type SyntaxNode = import("@lezer/common").SyntaxNode;
 const { parser: cppParser } = await import("@lezer/cpp");
 const { mkdir } = await import("fs/promises");
 const { join, relative } = await import("path");
-const { bannedTypes, sharedTypes, typeDeclarations } = await import("./shared-types");
+const { bannedTypes, sharedTypes, typeDeclarations } = await import("./shared-types.ts");
 
 type Point = {
   line: number;
