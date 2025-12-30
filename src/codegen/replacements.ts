@@ -129,8 +129,8 @@ export const define: Record<string, string> = {
   $streamWaiting: "5",
   $streamWritable: "6",
 
-  "process.platform": JSON.stringify(Bun.env.TARGET_PLATFORM ?? process.platform),
-  "process.arch": JSON.stringify(Bun.env.TARGET_ARCH ?? process.arch),
+  "process.platform": JSON.stringify(process.env.TARGET_PLATFORM ?? process.platform),
+  "process.arch": JSON.stringify(process.env.TARGET_ARCH ?? process.arch),
 };
 
 // ------------------------------ //
