@@ -18,13 +18,15 @@
 // JSC::SourceCode. JSC does this, but WebCore does not seem to.
 import assert from "assert";
 import fs from "fs";
-import { readdirSync, rmSync } from "fs";
+import { readdirSync, rmSync, readFileSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import path from "path";
 import { sliceSourceCode } from "./builtin-parser.ts";
 import { createAssertClientJS, createLogClientJS } from "./client-js.ts";
 import { getJS2NativeDTS } from "./generate-js2native.ts";
 import { addCPPCharArray, cap, low, writeIfNotChanged } from "./helpers.ts";
 import { applyGlobalReplacements, define } from "./replacements.ts";
+import * as esbuild from "esbuild";
 
 const PARALLEL = false;
 const KEEP_TMP = true;
@@ -284,21 +286,26 @@ $$capture_start$$(${fn.async ? "async " : ""}${
       } {${fn.source}}).$$capture_end$$;
 `,
     );
-    await new Promise(resolve => setTimeout(resolve, 1));
-    const build = await Bun.build({
-      entrypoints: [tmpFile],
+    await new Promise(r => setTimeout(r, 1));
+    const build = await esbuild.build({
+      entryPoints: [tmpFile],
       define,
-      target: "bun",
-      minify: { syntax: true, whitespace: false, keepNames: true },
+      target: "esnext",
+      minify: true,
+      minifyWhitespace: false,
+      keepNames: false,
+      bundle: true,
+      write: false,
+      format: "esm",
     });
     // TODO: Wait a few versions before removing this
-    if (!build.success) {
-      throw new AggregateError(build.logs, "Failed bundling builtin function " + fn.name + " from " + basename + ".ts");
+    if (build.errors.length > 0) {
+      throw new AggregateError(build.errors, "Failed bundling builtin function " + fn.name + " from " + basename + ".ts");
     }
-    if (build.outputs.length !== 1) {
+    if (build.outputFiles.length !== 1) {
       throw new Error("expected one output");
     }
-    let output = (await build.outputs[0].text()).replaceAll("// @bun\n", "");
+    let output = build.outputFiles[0].text.replaceAll("// @bun\n", "");
     let usesDebug = output.includes("$debug_log");
     let usesAssert = output.includes("$assert");
     const captured = output.match(/\$\$capture_start\$\$([\s\S]+)\.\$\$capture_end\$\$/)![1];
@@ -760,7 +767,7 @@ JSBuiltinInternalFunctions::JSBuiltinInternalFunctions(JSC::VM& vm) : m_vm(vm)
     `;
   // Handle builtin names
   {
-    const BunBuiltinNamesHeader = require("fs").readFileSync(
+    const BunBuiltinNamesHeader = readFileSync(
       path.join(import.meta.dirname, "../js/builtins/BunBuiltinNames.h"),
       "utf8",
     );
