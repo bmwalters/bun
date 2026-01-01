@@ -318,6 +318,7 @@ function idToPublicSpecifierOrEnumName(id: string) {
 
 await bundleBuiltinFunctions({
   requireTransformer,
+  debug,
 });
 
 mark("Bundle Functions");

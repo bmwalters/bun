@@ -71,7 +71,7 @@ interface BundledBuiltin {
 /**
  * Source .ts file --> Array<bundled js function code>
  */
-async function processFileSplit(filename: string): Promise<{ functions: BundledBuiltin[]; internal: boolean }> {
+async function processFileSplit(filename: string, debug: boolean): Promise<{ functions: BundledBuiltin[]; internal: boolean }> {
   const basename = path.basename(filename, ".ts");
   let contents = fs.readFileSync(filename, "utf8");
 
@@ -291,7 +291,7 @@ $$capture_start$$(${fn.async ? "async " : ""}${
       entryPoints: [tmpFile],
       define,
       target: "esnext",
-      minify: true,
+      minify: !debug,
       minifyWhitespace: false,
       keepNames: false,
       bundle: true,
@@ -358,12 +358,12 @@ $$capture_start$$(${fn.async ? "async " : ""}${
 }
 
 const files: Array<{ basename: string; functions: BundledBuiltin[]; internal: boolean }> = [];
-async function processFunctionFile(x: string) {
+async function processFunctionFile(x: string, debug: boolean) {
   const basename = path.basename(x, ".ts");
   try {
     files.push({
       basename,
-      ...(await processFileSplit(path.join(SRC_DIR, x))),
+      ...(await processFileSplit(path.join(SRC_DIR, x), debug)),
     });
   } catch (error) {
     console.error("Failed to process file: " + basename + ".ts");
@@ -374,9 +374,10 @@ async function processFunctionFile(x: string) {
 
 interface BundleBuiltinFunctionsArgs {
   requireTransformer: (x: string, filename: string) => string;
+  debug: boolean;
 }
 
-export async function bundleBuiltinFunctions({ requireTransformer }: BundleBuiltinFunctionsArgs) {
+export async function bundleBuiltinFunctions({ requireTransformer, debug }: BundleBuiltinFunctionsArgs) {
   // Ensure tmp_functions directory exists
   if (!fs.existsSync(TMP_DIR)) {
     fs.mkdirSync(TMP_DIR, { recursive: true });
@@ -388,10 +389,10 @@ export async function bundleBuiltinFunctions({ requireTransformer }: BundleBuilt
 
   // Bun seems to crash if this is parallelized, :(
   if (PARALLEL) {
-    await Promise.all(filesToProcess.map(processFunctionFile));
+    await Promise.all(filesToProcess.map(x => processFunctionFile(x, debug)));
   } else {
     for (const x of filesToProcess) {
-      await processFunctionFile(x);
+      await processFunctionFile(x, debug);
     }
   }
 
