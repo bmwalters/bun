@@ -54,34 +54,14 @@ To run manually:
 */
 
 const start = Date.now();
-let isInstalled = false;
-try {
-  const grammarfile = await Bun.file("node_modules/@lezer/cpp/src/cpp.grammar").text();
-  isInstalled = true;
-} catch (e) {}
-if (!isInstalled) {
-  if (process.argv.includes("--already-installed")) {
-    console.error("Lezer C++ grammar is not installed. Please run `bun install` to install it.");
-    process.exit(1);
-  }
-  const r = Bun.spawnSync([process.argv[0], "install", "--frozen-lockfile"], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (r.exitCode !== 0) {
-    console.error(r.stdout.toString());
-    console.error(r.stderr.toString());
-    process.exit(r.exitCode ?? 1);
-  }
-
-  const r2 = Bun.spawnSync([...process.argv, "--already-installed"], { stdio: ["inherit", "inherit", "inherit"] });
-  process.exit(r2.exitCode ?? 1);
-}
 
 type SyntaxNode = import("@lezer/common").SyntaxNode;
 const { parser: cppParser } = await import("@lezer/cpp");
+const { spawnSync } = await import("child_process");
+const fs = await import("fs");
 const { mkdir } = await import("fs/promises");
 const { join, relative } = await import("path");
-const { bannedTypes, sharedTypes, typeDeclarations } = await import("./shared-types");
+const { bannedTypes, sharedTypes, typeDeclarations } = await import("./shared-types.ts");
 
 type Point = {
   line: number;
@@ -150,18 +130,22 @@ function throwError(position: Srcloc, message: string): never {
 }
 class PositionedErrorClass extends Error {
   notes: { position: Srcloc; message: string }[] = [];
+  position: Srcloc;
   constructor(
-    public position: Srcloc,
+    position: Srcloc,
     message: string,
   ) {
     super(message);
+    this.position = position;
   }
 }
 
 // Lezer works with offsets, but our errors need line/column. This utility handles the conversion.
 class LineInfo {
   private lineStarts: number[];
-  constructor(private source: string) {
+  private source: string;
+  constructor(source: string) {
+    this.source = source;
     this.lineStarts = [0];
     for (let i = 0; i < source.length; i++) {
       if (source[i] === "\n") {
@@ -399,7 +383,7 @@ function processFunction(ctx: ParseContext, node: SyntaxNode, tag: ExportTag): C
 
 type ExportTag = "check_slow" | "zero_is_throw" | "false_is_throw" | "null_is_throw" | "nothrow";
 
-const sharedTypesText = await Bun.file("src/codegen/shared-types.ts").text();
+const sharedTypesText = fs.readFileSync("src/codegen/shared-types.ts", "utf8");
 const sharedTypesLines = sharedTypesText.split("\n");
 let sharedTypesLine = 0;
 let sharedTypesColumn = 0;
@@ -485,7 +469,7 @@ function closest(node: SyntaxNode | null, type: string): SyntaxNode | null {
 type CppParser = typeof cppParser;
 
 async function processFile(parser: CppParser, file: string, allFunctions: CppFn[]) {
-  const sourceCode = await Bun.file(file).text();
+  const sourceCode = fs.readFileSync(file, "utf8");
   if (!sourceCode.includes("[[ZIG_EXPORT(")) return;
 
   const sourceCodeLines = sourceCode.split("\n");
@@ -615,7 +599,7 @@ async function processFile(parser: CppParser, file: string, allFunctions: CppFn[
 }
 
 async function renderError(position: Srcloc, message: string, label: string, color: string) {
-  const fileContent = await Bun.file(position.file).text();
+  const fileContent = fs.readFileSync(position.file, "utf8");
   const lines = fileContent.split("\n");
   const line = lines[position.start.line - 1];
   if (line === undefined) return;
@@ -728,7 +712,7 @@ function generateZigFn(
 
 async function readFileOrEmpty(file: string): Promise<string> {
   try {
-    const fileContents = await Bun.file(file).text();
+    const fileContents = fs.readFileSync(file, "utf8");
     return fileContents;
   } catch (e) {
     return "";
@@ -758,7 +742,7 @@ async function main() {
 
   const parser = cppParser;
 
-  const allCppFiles = (await Bun.file("cmake/sources/CxxSources.txt").text())
+  const allCppFiles = fs.readFileSync("cmake/sources/CxxSources.txt", "utf8")
     .trim()
     .split("\n")
     .map(q => q.trim())
@@ -797,13 +781,13 @@ async function main() {
     resultRaw.join("\n") +
     "\n};\n";
   if ((await readFileOrEmpty(resultFilePath)) !== resultContents) {
-    await Bun.write(resultFilePath, resultContents);
+    fs.writeFileSync(resultFilePath, resultContents);
   }
 
   const resultSourceLinksFilePath = join(dstDir, "cpp.source-links");
   const resultSourceLinksContents = resultSourceLinks.join("\n");
   if ((await readFileOrEmpty(resultSourceLinksFilePath)) !== resultSourceLinksContents) {
-    await Bun.write(resultSourceLinksFilePath, resultSourceLinksContents);
+    fs.writeFileSync(resultSourceLinksFilePath, resultSourceLinksContents);
     const now = Date.now();
     const sin = Math.round(((Math.sin((now / 1000) * 1) + 1) / 2) * 0);
     if (process.env.CI) {

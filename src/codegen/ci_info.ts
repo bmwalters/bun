@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 type Vendor = {
   name: string;
   constant: string;
@@ -447,7 +449,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   const out = args[0];
   if (out) {
-    await Bun.write(out, result);
+    fs.writeFileSync(out, result);
   } else {
     console.log(result);
   }

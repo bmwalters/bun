@@ -2,9 +2,10 @@
 // and checking on input data. The goal is to allow people not aware of
 // various footguns in JavaScript, C++, and the bindings generator to
 // always produce correct code, or bail with an error.
-import { expect } from "bun:test";
 import assert from "node:assert";
+import crypto from "node:crypto";
 import * as path from "node:path";
+import util from "node:util";
 import type { FuncOptions, t } from "./bindgen-lib";
 
 export const src = path.join(import.meta.dirname, "../");
@@ -72,9 +73,9 @@ interface TypeDataDefs {
 }
 type TypeData<K extends TypeKind> = K extends keyof TypeDataDefs ? TypeDataDefs[K] : any;
 
-export const enum NodeValidator {
-  validateInteger = "validateInteger",
-}
+export const NodeValidator = {
+  validateInteger: "validateInteger",
+} as const;
 
 interface Flags {
   nodeValidator?: NodeValidator;
@@ -91,7 +92,7 @@ export interface DictionaryField {
   type: TypeImpl;
 }
 
-export declare const isType: unique symbol;
+export const isType = Symbol("isType");
 
 const numericTypes = new Set(["f64", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "usize"]);
 
@@ -152,7 +153,7 @@ export class TypeImpl<K extends TypeKind = TypeKind> {
         h += this.data.map(({ key, required, type }) => `${key}:${required}:${type.hash()}`).join(",");
         break;
     }
-    let hash = String(Bun.hash(h));
+    let hash = crypto.createHash("sha256").update(h).digest("hex").slice(0, 16);
     this.#hash = hash;
     return hash;
   }
@@ -519,7 +520,7 @@ export class TypeImpl<K extends TypeKind = TypeKind> {
   }
 
   [Symbol.toStringTag] = "Type";
-  [Bun.inspect.custom](depth, options, inspect) {
+  [Symbol.for('nodejs.util.inspect.custom')](depth, options, inspect) {
     return (
       `${options.stylize("Type", "special")} ${
         this.lowersToNamedType() && this.nameDeduplicated
@@ -671,7 +672,7 @@ export function cAbiTypeForEnum(length: number): CAbiType {
 }
 
 export function inspect(value: any) {
-  return Bun.inspect(value, { colors: Bun.enableANSIColors });
+  return util.inspect(value, { colors: process.stdout.isTTY });
 }
 
 export function oneOfImpl(types: TypeImpl[]): TypeImpl {
@@ -804,7 +805,7 @@ export interface TypeDef {
 export function registerFunction(opts: FuncOptions) {
   const snapshot = snapshotCallerLocation();
   const filename = stackTraceFileName(snapshot);
-  expect(filename).toEndWith(".bind.ts");
+  assert(filename.endsWith(".bind.ts"), `Expected filename to end with .bind.ts, got ${filename}`);
   const zigFile = path.relative(src, filename.replace(/\.bind\.ts$/, ".zig"));
   let file = files.get(zigFile);
   if (!file) {
@@ -878,7 +879,7 @@ function snapshotCallerLocation(): string {
   const lines = stack.split("\n");
   let i = 1;
   for (; i < lines.length; i++) {
-    if (!lines[i].includes(import.meta.dir)) {
+    if (!lines[i].includes(import.meta.dirname)) {
       return lines[i];
     }
   }
@@ -886,9 +887,30 @@ function snapshotCallerLocation(): string {
 }
 
 function stackTraceFileName(line: string): string {
-  const match = /(?:at\s+|\()(.:?[^:\n(\)]*)[^(\n]*$/i.exec(line);
-  assert(match, `Couldn't extract filename from stack trace line: ${line}`);
-  return match[1].replaceAll("\\", "/");
+  let clean = line.trim();
+  if (clean.startsWith("at ")) clean = clean.slice(3).trim();
+  
+  // Handle "Function (file:...)" format
+  if (clean.endsWith(")")) {
+    const openParen = clean.lastIndexOf("(");
+    if (openParen !== -1) {
+      clean = clean.slice(openParen + 1, -1);
+    }
+  }
+
+  // Remove :line:col
+  // Be careful with Windows drive letters (C:\...)
+  // We assume line:col are at the end and are numbers.
+  const match = clean.match(/(.*):(\d+):(\d+)$/);
+  if (match) {
+    clean = match[1];
+  }
+
+  if (clean.startsWith("file://")) {
+      clean = clean.slice(7);
+  }
+  
+  return clean.replaceAll("\\", "/");
 }
 
 export type CAbiType =
@@ -1007,8 +1029,8 @@ export class Struct {
   }
 
   hash() {
-    return (this.#hash ??= String(
-      Bun.hash(
+    return (this.#hash ??= 
+      crypto.createHash("sha256").update(
         this.fields
           .map(f => {
             if (f.type instanceof Struct) {
@@ -1017,8 +1039,8 @@ export class Struct {
             return f.name + `:` + f.type;
           })
           .join(","),
-      ),
-    ));
+      ).digest("hex").slice(0, 16)
+    );
   }
 
   name() {

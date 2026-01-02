@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { readdirRecursive, resolveSyncOrNull } from "./helpers";
+import { readdirRecursive, resolveSyncOrNull } from "./helpers.ts";
 
 export function createInternalModuleRegistry(basedir: string) {
   const moduleList = ["bun", "node", "thirdparty", "internal"]

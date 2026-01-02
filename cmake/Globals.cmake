@@ -612,24 +612,37 @@ function(parse_package_json)
   endif()
 endfunction()
 
-# register_bun_install()
+# register_npm_install()
 # Description:
-#   Registers a command to run `bun install` in a directory.
+#   Registers a command to run `npm install` (or `bun install`) in a directory.
+#   Uses NPM_EXECUTABLE which defaults to BUN_EXECUTABLE.
 # Arguments:
-#   CWD                   string - The directory to run `bun install`
-#   NODE_MODULES_VARIABLE string - The variable to set to list of node_modules sources
-function(register_bun_install)
+#   CWD                   string   - The directory to run the install command
+#   NODE_MODULES_VARIABLE string   - The variable to set to list of node_modules sources
+#   OUTPUTS               string[] - Additional outputs to register (e.g. binaries in node_modules/.bin)
+function(register_npm_install)
   set(args CWD NODE_MODULES_VARIABLE)
-  cmake_parse_arguments(NPM "" "${args}" "" ${ARGN})
+  set(multiArgs OUTPUTS)
+  cmake_parse_arguments(NPM "" "${args}" "${multiArgs}" ${ARGN})
 
   if(NOT NPM_CWD)
     set(NPM_CWD ${CWD})
   endif()
 
-  if(NPM_CWD STREQUAL ${CWD})
-    set(NPM_COMMENT "bun install")
+  # Determine the install command based on the NPM_EXECUTABLE
+  get_filename_component(NPM_EXE_NAME ${NPM_EXECUTABLE} NAME)
+  if(NPM_EXE_NAME MATCHES "^npm")
+    set(NPM_INSTALL_ARGS --ignore-scripts)
+    set(NPM_INSTALL_NAME "npm install")
   else()
-    set(NPM_COMMENT "bun install --cwd ${NPM_CWD}")
+    set(NPM_INSTALL_ARGS --frozen-lockfile)
+    set(NPM_INSTALL_NAME "bun install")
+  endif()
+
+  if(NPM_CWD STREQUAL ${CWD})
+    set(NPM_COMMENT "${NPM_INSTALL_NAME}")
+  else()
+    set(NPM_COMMENT "${NPM_INSTALL_NAME} --cwd ${NPM_CWD}")
   endif()
 
   parse_package_json(
@@ -640,7 +653,7 @@ function(register_bun_install)
   )
 
   if(NOT NPM_NODE_MODULES)
-    message(FATAL_ERROR "register_bun_install: ${NPM_CWD}/package.json does not have dependencies?")
+    message(FATAL_ERROR "register_npm_install: ${NPM_CWD}/package.json does not have dependencies?")
   endif()
 
   register_command(
@@ -649,13 +662,14 @@ function(register_bun_install)
     CWD
       ${NPM_CWD}
     COMMAND
-      ${BUN_EXECUTABLE}
+      ${NPM_EXECUTABLE}
         install
-        --frozen-lockfile
+        ${NPM_INSTALL_ARGS}
     SOURCES
       ${NPM_CWD}/package.json
     OUTPUTS
       ${NPM_NODE_MODULES}
+      ${NPM_OUTPUTS}
   )
 
   set(${NPM_NODE_MODULES_VARIABLE} ${NPM_NODE_MODULES} PARENT_SCOPE)

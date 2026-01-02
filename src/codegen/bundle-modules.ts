@@ -12,15 +12,21 @@ import fs from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { builtinModules } from "node:module";
 import path from "path";
-import jsclasses from "./../bun.js/bindings/js_classes";
-import { sliceSourceCode } from "./builtin-parser";
-import { createAssertClientJS, createLogClientJS } from "./client-js";
-import { getJS2NativeCPP, getJS2NativeZig } from "./generate-js2native";
-import { cap, declareASCIILiteral, writeIfNotChanged } from "./helpers";
-import { createInternalModuleRegistry } from "./internal-module-registry-scanner";
-import { define } from "./replacements";
+import jsclasses from "./../bun.js/bindings/js_classes.ts";
+import { sliceSourceCode } from "./builtin-parser.ts";
+import { createAssertClientJS, createLogClientJS } from "./client-js.ts";
+import { getJS2NativeCPP, getJS2NativeZig } from "./generate-js2native.ts";
+import { cap, declareASCIILiteral, writeIfNotChanged } from "./helpers.ts";
+import { createInternalModuleRegistry } from "./internal-module-registry-scanner.ts";
+import { define } from "./replacements.ts";
+import { init, parse } from "es-module-lexer";
+import * as esbuild from "esbuild";
+import { createRequire } from "node:module";
 
-const BASE = path.join(import.meta.dir, "../js");
+const require = createRequire(import.meta.url);
+await init;
+
+const BASE = path.join(import.meta.dirname, "../js");
 const debug = process.argv[2] === "--debug=ON";
 const CMAKE_BUILD_ROOT = process.argv[3];
 
@@ -33,13 +39,13 @@ if (!CMAKE_BUILD_ROOT) {
 }
 
 globalThis.CMAKE_BUILD_ROOT = CMAKE_BUILD_ROOT;
-const bundleBuiltinFunctions = require("./bundle-functions").bundleBuiltinFunctions;
+const bundleBuiltinFunctions = require("./bundle-functions.ts").bundleBuiltinFunctions;
 
 const TMP_DIR = path.join(CMAKE_BUILD_ROOT, "tmp_modules");
 const CODEGEN_DIR = path.join(CMAKE_BUILD_ROOT, "codegen");
 const JS_DIR = path.join(CMAKE_BUILD_ROOT, "js");
 
-const t = new Bun.Transpiler({ loader: "tsx" });
+// const t = new Bun.Transpiler({ loader: "tsx" });
 
 let start = performance.now();
 const silent = process.env.BUN_SILENT === "1" || process.env.CLAUDECODE;
@@ -59,7 +65,7 @@ globalThis.requireTransformer = requireTransformer;
 // work, so i have lot of debug logs that blow up the console because not sure what is going on.
 // that is also the reason for using `retry` when theoretically writing a file the first time
 // should actually write the file.
-const verbose = Bun.env.VERBOSE ? console.log : () => {};
+const verbose = process.env.VERBOSE ? console.log : () => {};
 async function retry(n, fn) {
   var err;
   while (n > 0) {
@@ -69,7 +75,7 @@ async function retry(n, fn) {
     } catch (e) {
       err = e;
       n--;
-      await Bun.sleep(5);
+      await new Promise(resolve => setTimeout(resolve, 5));
     }
   }
   throw err;
@@ -98,20 +104,25 @@ for (let i = 0; i < nativeStartIndex; i++) {
 
     // TODO: there is no reason this cannot be converted automatically.
     // import { ... } from '...' -> `const { ... } = require('...')`
-    const scannedImports = t.scan(input);
-    for (const imp of scannedImports.imports) {
-      if (imp.kind === "import-statement") {
+    const [imports, exports] = parse(input);
+    for (const imp of imports) {
+      if (imp.d === -1) {
+        // Ignore type-only imports
+        if (/^import\s+type\s/.test(input.slice(imp.ss, imp.se))) {
+          continue;
+        }
+
         var isBuiltin = true;
         try {
-          if (!builtinModules.includes(imp.path)) {
-            requireTransformer(imp.path, moduleList[i]);
+          if (!builtinModules.includes(imp.n)) {
+            requireTransformer(imp.n, moduleList[i]);
           }
         } catch {
           isBuiltin = false;
         }
         if (isBuiltin) {
           const err = new Error(
-            `Cannot use ESM import statement within builtin modules. Use require("${imp.path}") instead. See src/js/README.md (from ${moduleList[i]})`,
+            `Cannot use ESM import statement within builtin modules. Use require("${imp.n}") instead. See src/js/README.md (from ${moduleList[i]})`,
           );
           err.name = "BunError";
           err["fileName"] = moduleList[i];
@@ -120,7 +131,8 @@ for (let i = 0; i < nativeStartIndex; i++) {
       }
     }
 
-    if (scannedImports.exports.includes("default") && scannedImports.exports.length > 1) {
+    const exportNames = exports.map(e => e.n);
+    if (exportNames.includes("default") && exportNames.length > 1) {
       const err = new Error(
         `Using \`export default\` AND named exports together in builtin modules is unsupported. See src/js/README.md (from ${moduleList[i]})`,
       );
@@ -162,7 +174,10 @@ ${processed.result.slice(1).trim()}
     if (!exportOptimization) {
       fileToTranspile = `var $;` + fileToTranspile.replaceAll("__intrinsic__exports", "$");
     }
-    const outputPath = path.join(TMP_DIR, moduleList[i].slice(0, -3) + ".ts");
+
+    // Use .mts extension so esbuild treats the file as ESM (not CommonJS).
+    // Without this, esbuild wraps the code in __commonJS which breaks our export mechanism.
+    const outputPath = path.join(TMP_DIR, moduleList[i].slice(0, -3) + ".mts");
 
     await mkdir(path.dirname(outputPath), { recursive: true });
     if (!fs.existsSync(path.dirname(outputPath))) {
@@ -200,36 +215,34 @@ ${processed.result.slice(1).trim()}
 mark("Preprocess modules");
 
 // directory caching stuff breaks this sometimes. CLI rules
-const config_cli = [
-  process.execPath,
-  "build",
-  ...bundledEntryPoints,
-  ...(debug ? [] : ["--minify-syntax", "--keep-names"]),
-  "--root",
-  TMP_DIR,
-  "--target",
-  "bun",
-  ...builtinModules.map(x => ["--external", x]).flat(),
-  ...Object.keys(define)
-    .map(x => [`--define`, `${x}=${define[x]}`])
-    .flat(),
-  "--define",
-  `IS_BUN_DEVELOPMENT=${String(!!debug)}`,
-  "--define",
-  `__intrinsic__debug=${debug ? "$debug_log_enabled" : "false"}`,
-  "--outdir",
-  path.join(TMP_DIR, "modules_out"),
-];
-verbose("running: ", config_cli);
-const out = Bun.spawnSync({
-  cmd: config_cli,
-  cwd: process.cwd(),
-  env: process.env,
-  stdio: ["pipe", "pipe", "pipe"],
-});
-if (out.exitCode !== 0) {
-  console.error(out.stderr.toString());
-  process.exit(out.exitCode);
+const defineOptions = {
+  ...define,
+  IS_BUN_DEVELOPMENT: String(!!debug),
+  __intrinsic__debug: debug ? "$debug_log_enabled" : "false",
+};
+
+verbose("running esbuild");
+try {
+  await esbuild.build({
+    entryPoints: bundledEntryPoints,
+    minifySyntax: !debug,
+    // Note: Bun.build --keep-names preserves function names natively without helpers.
+    // esbuild's keepNames adds __defProp/__name helpers that don't work in JSC builtins.
+    // So we disable keepNames here - function names may be minified in debug builds.
+    // TODO: Investigate why var declarations at the top of the file are not visible at runtime.
+    keepNames: false,
+    outbase: TMP_DIR,
+    target: "esnext",
+    external: [...builtinModules, "bun:*"],
+    define: defineOptions,
+    outdir: path.join(TMP_DIR, "modules_out"),
+    bundle: true,
+    format: "esm",
+    platform: "neutral",
+  });
+} catch (e) {
+  console.error(e);
+  process.exit(1);
 }
 
 mark("Bundle modules");
@@ -237,14 +250,15 @@ mark("Bundle modules");
 const outputs = new Map();
 
 for (const entrypoint of bundledEntryPoints) {
-  const file_path = entrypoint.slice(TMP_DIR.length + 1).replace(/\.ts$/, ".js");
-  const file = Bun.file(path.join(TMP_DIR, "modules_out", file_path));
-  const output = await file.text();
-  let captured = `(function (){${output.replace("// @bun\n", "").trim()}})`;
+  const file_path = entrypoint.slice(TMP_DIR.length + 1).replace(/\.mts$/, ".js");
+  const output = fs.readFileSync(path.join(TMP_DIR, "modules_out", file_path), "utf8");
+  let captured = `(function (){${output.replace("// @bun\n", "").trim()}\n})`;
   let usesDebug = output.includes("$debug_log");
   let usesAssert = output.includes("$assert");
   captured =
     captured
+      // Transform $$EXPORT$$(value) marker into a return statement expected by bun.
+      // Bun calls this function and uses the returned value as the module exports.
       .replace(/\$\$EXPORT\$\$\((.*)\).\$\$EXPORT_END\$\$;/, "return $1")
       .replace(/]\s*,\s*__(debug|assert)_end__\)/g, ")")
       .replace(/]\s*,\s*__debug_end__\)/g, ")")
@@ -304,6 +318,7 @@ function idToPublicSpecifierOrEnumName(id: string) {
 
 await bundleBuiltinFunctions({
   requireTransformer,
+  debug,
 });
 
 mark("Bundle Functions");
@@ -481,7 +496,7 @@ writeIfNotChanged(
 writeIfNotChanged(path.join(CODEGEN_DIR, "GeneratedJS2Native.h"), getJS2NativeCPP());
 
 // zig will complain if this file is outside of the module
-const js2nativeZigPath = path.join(import.meta.dir, "../bun.js/bindings/GeneratedJS2Native.zig");
+const js2nativeZigPath = path.join(import.meta.dirname, "../bun.js/bindings/GeneratedJS2Native.zig");
 writeIfNotChanged(js2nativeZigPath, getJS2NativeZig(js2nativeZigPath));
 
 const generatedDTSPath = path.join(CODEGEN_DIR, "generated.d.ts");
@@ -541,25 +556,24 @@ declare module "module" {
 
 mark("Generate Code");
 
-const evalFiles = new Bun.Glob(path.join(BASE, "eval", "*.ts")).scanSync();
-for (const file of evalFiles) {
-  const {
-    outputs: [output],
-  } = await Bun.build({
-    entrypoints: [file],
-
-    // Shrink it.
-    minify: !debug,
-
-    target: "bun",
-    format: "esm",
-    env: "disable",
-    define: {
-      "process.platform": JSON.stringify(process.platform),
-      "process.arch": JSON.stringify(process.arch),
-    },
-  });
-  writeIfNotChanged(path.join(CODEGEN_DIR, "eval", path.basename(file)), await output.text());
+const evalDir = path.join(BASE, "eval");
+if (fs.existsSync(evalDir)) {
+  const evalFiles = fs.readdirSync(evalDir).filter(f => f.endsWith(".ts")).map(f => path.join(evalDir, f));
+  for (const file of evalFiles) {
+    const result = await esbuild.build({
+      entryPoints: [file],
+      minify: !debug,
+      target: "esnext",
+      format: "esm",
+      define: {
+        "process.platform": JSON.stringify(process.platform),
+        "process.arch": JSON.stringify(process.arch),
+      },
+      write: false,
+    });
+    const outputText = result.outputFiles[0].text;
+    writeIfNotChanged(path.join(CODEGEN_DIR, "eval", path.basename(file)), outputText);
+  }
 }
 
 if (!silent) {

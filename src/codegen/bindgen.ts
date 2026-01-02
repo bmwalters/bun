@@ -6,10 +6,11 @@
 import assert from "node:assert";
 import fs from "node:fs";
 import * as path from "node:path";
+import util from "node:util";
 import {
-  ArgStrategyChildItem,
+  type ArgStrategyChildItem,
   CodeWriter,
-  Func,
+  type Func,
   NodeValidator,
   Struct,
   TypeImpl,
@@ -35,8 +36,8 @@ import {
   type ReturnStrategy,
   type TypeKind,
   type Variant,
-} from "./bindgen-lib-internal";
-import { argParse, readdirRecursiveWithExclusionsAndExtensionsSync, writeIfNotChanged } from "./helpers";
+} from "./bindgen-lib-internal.ts";
+import { argParse, readdirRecursiveWithExclusionsAndExtensionsSync, writeIfNotChanged } from "./helpers.ts";
 
 // arg parsing
 let { "codegen-root": codegenRoot, debug } = argParse(["codegen-root", "debug"]);
@@ -826,7 +827,7 @@ function returnStrategyCppType(strategy: ReturnStrategy): string {
       return "JSC::EncodedJSValue";
     default:
       throw new Error(
-        `TODO: returnStrategyCppType for ${Bun.inspect(strategy satisfies never, { colors: Bun.enableANSIColors })}`,
+        `TODO: returnStrategyCppType for ${util.inspect(strategy satisfies never, { colors: process.stdout.isTTY })}`,
       );
   }
 }
@@ -840,7 +841,7 @@ function returnStrategyZigType(strategy: ReturnStrategy): string {
       return "jsc.JSValue";
     default:
       throw new Error(
-        `TODO: returnStrategyZigType for ${Bun.inspect(strategy satisfies never, { colors: Bun.enableANSIColors })}`,
+        `TODO: returnStrategyZigType for ${util.inspect(strategy satisfies never, { colors: process.stdout.isTTY })}`,
       );
   }
 }
@@ -1094,7 +1095,7 @@ for (const fileName of [...unsortedFiles].sort()) {
     files.set(zigFile, file);
   }
 
-  const exports = import.meta.require(fileName);
+  const exports = await import(fileName);
 
   // Mark all exported TypeImpl as reachable
   for (let [key, value] of Object.entries(exports)) {

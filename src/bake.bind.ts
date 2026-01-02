@@ -1,4 +1,4 @@
-// import { t } from "bindgen";
+// import { t } from "#bindgen";
 
 // export const ReactFastRefresh = t.dictionary({
 //   importSource: t.UTF8String,

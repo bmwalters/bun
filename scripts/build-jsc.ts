@@ -26,7 +26,7 @@ const IS_LINUX = OS_NAME === "linux";
 const IS_ARM64 = ARCH_NAME_RAW === "arm64" || ARCH_NAME_RAW === "aarch64";
 
 // Paths
-const ROOT_DIR = resolve(import.meta.dir, "..");
+const ROOT_DIR = resolve(import.meta.dirname, "..");
 const WEBKIT_DIR = resolve(ROOT_DIR, "vendor/WebKit");
 const WEBKIT_BUILD_DIR = join(WEBKIT_DIR, "WebKitBuild");
 const WEBKIT_RELEASE_DIR = join(WEBKIT_BUILD_DIR, "Release");
@@ -138,8 +138,7 @@ const getBuildEnv = () => {
   const cxxflags = ["-ffat-lto-objects"];
 
   if (IS_LINUX && buildConfig !== "lto") {
-    cflags.push("-Wl,--whole-archive");
-    cxxflags.push("-Wl,--whole-archive", "-DUSE_BUN_JSC_ADDITIONS=ON", "-DUSE_BUN_EVENT_LOOP=ON");
+    cxxflags.push("-DUSE_BUN_JSC_ADDITIONS=ON", "-DUSE_BUN_EVENT_LOOP=ON");
   }
 
   env.CFLAGS = (env.CFLAGS || "") + " " + cflags.join(" ");

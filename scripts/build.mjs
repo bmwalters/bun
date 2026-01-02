@@ -14,9 +14,7 @@ import {
   startGroup,
 } from "./utils.mjs";
 
-if (globalThis.Bun) {
-  await import("./glob-sources.mjs");
-}
+await import("./glob-sources.mjs");
 
 // https://cmake.org/cmake/help/latest/manual/cmake.1.html#generate-a-project-buildsystem
 const generateFlags = [

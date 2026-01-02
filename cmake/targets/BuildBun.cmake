@@ -78,7 +78,7 @@ set(BUN_ERROR_OUTPUTS
   ${BUN_ERROR_OUTPUT}/bun-error.css
 )
 
-register_bun_install(
+register_npm_install(
   CWD
     ${BUN_ERROR_SOURCE}
   NODE_MODULES_VARIABLE
@@ -168,7 +168,7 @@ foreach(source ${BUN_NODE_FALLBACKS_SOURCES})
   list(APPEND BUN_NODE_FALLBACKS_OUTPUTS ${BUN_NODE_FALLBACKS_OUTPUT}/${filename})
 endforeach()
 
-register_bun_install(
+register_npm_install(
   CWD
     ${BUN_NODE_FALLBACKS_SOURCE}
   NODE_MODULES_VARIABLE
@@ -185,7 +185,7 @@ register_command(
   CWD
     ${BUN_NODE_FALLBACKS_SOURCE}
   COMMAND
-    ${BUN_EXECUTABLE} run build-fallbacks
+    ${BUN_EXECUTABLE} build-fallbacks.ts
       ${BUN_NODE_FALLBACKS_OUTPUT}
       ${BUN_NODE_FALLBACKS_SOURCES}
   SOURCES
@@ -206,10 +206,10 @@ register_command(
   CWD
     ${BUN_NODE_FALLBACKS_SOURCE}
   COMMAND
-    ${BUN_EXECUTABLE} build
+    ${ESBUILD_EXECUTABLE} ${ESBUILD_ARGS}
       ${BUN_NODE_FALLBACKS_SOURCE}/node_modules/react-refresh/cjs/react-refresh-runtime.development.js
       --outfile=${BUN_REACT_REFRESH_OUTPUT}
-      --target=browser
+      --platform=browser
       --format=cjs
       --minify
       --define:process.env.NODE_ENV=\"'development'\"
@@ -243,7 +243,6 @@ register_command(
     "Generating ErrorCode.{zig,h}"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_ERROR_CODE_SCRIPT}
       ${CODEGEN_PATH}
   SOURCES
@@ -278,7 +277,6 @@ register_command(
     "Generating ZigGeneratedClasses.{zig,cpp,h}"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_ZIG_GENERATED_CLASSES_SCRIPT}
       ${BUN_ZIG_GENERATED_CLASSES_SOURCES}
       ${CODEGEN_PATH}
@@ -334,6 +332,8 @@ register_command(
   SOURCES
     ${BUN_JAVASCRIPT_CODEGEN_SOURCES}
     ${BUN_CXX_SOURCES}
+    # for devDependencies i.e. @lezer/cpp
+    ${ESBUILD_EXECUTABLE}
   OUTPUTS
     ${BUN_CPP_OUTPUTS}
 )
@@ -360,7 +360,6 @@ register_command(
     "Generating JavaScript modules"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_JAVASCRIPT_CODEGEN_SCRIPT}
         --debug=${DEBUG}
         ${BUILD_PATH}
@@ -368,6 +367,7 @@ register_command(
     ${BUN_JAVASCRIPT_SOURCES}
     ${BUN_JAVASCRIPT_CODEGEN_SOURCES}
     ${BUN_JAVASCRIPT_CODEGEN_SCRIPT}
+    ${ESBUILD_EXECUTABLE}
   OUTPUTS
     ${BUN_JAVASCRIPT_OUTPUTS}
 )
@@ -392,7 +392,6 @@ register_command(
     "Bundling Bake Runtime"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_BAKE_RUNTIME_CODEGEN_SCRIPT}
         --debug=${DEBUG}
         --codegen-root=${CODEGEN_PATH}
@@ -400,6 +399,7 @@ register_command(
     ${BUN_BAKE_RUNTIME_SOURCES}
     ${BUN_BAKE_RUNTIME_CODEGEN_SOURCES}
     ${BUN_BAKE_RUNTIME_CODEGEN_SCRIPT}
+    ${ESBUILD_EXECUTABLE}
   OUTPUTS
     ${CODEGEN_PATH}/bake_empty_file
     ${BUN_BAKE_RUNTIME_OUTPUTS}
@@ -415,16 +415,13 @@ string(REPLACE ";" "," BUN_BINDGENV2_SOURCES_COMMA_SEPARATED
   "${BUN_BINDGENV2_SOURCES}")
 
 execute_process(
-  COMMAND ${BUN_EXECUTABLE} run ${BUN_BINDGENV2_SCRIPT}
+  COMMAND ${BUN_EXECUTABLE} ${BUN_BINDGENV2_SCRIPT}
     --command=list-outputs
     --sources=${BUN_BINDGENV2_SOURCES_COMMA_SEPARATED}
     --codegen-path=${CODEGEN_PATH}
-  RESULT_VARIABLE bindgen_result
   OUTPUT_VARIABLE bindgen_outputs
+  COMMAND_ERROR_IS_FATAL ANY
 )
-if(${bindgen_result})
-  message(FATAL_ERROR "bindgenv2/script.ts exited with non-zero status")
-endif()
 foreach(output IN LISTS bindgen_outputs)
   if(output MATCHES "\.cpp$")
     list(APPEND BUN_BINDGENV2_CPP_OUTPUTS ${output})
@@ -441,7 +438,7 @@ register_command(
   COMMENT
     "Generating bindings (v2)"
   COMMAND
-    ${BUN_EXECUTABLE} run ${BUN_BINDGENV2_SCRIPT}
+    ${BUN_EXECUTABLE} ${BUN_BINDGENV2_SCRIPT}
       --command=generate
       --codegen-path=${CODEGEN_PATH}
       --sources=${BUN_BINDGENV2_SOURCES_COMMA_SEPARATED}
@@ -472,7 +469,6 @@ register_command(
     "Processing \".bind.ts\" files"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_BINDGEN_SCRIPT}
         --debug=${DEBUG}
         --codegen-root=${CODEGEN_PATH}
@@ -504,7 +500,6 @@ register_command(
     "Generating JSSink.{cpp,h}"
   COMMAND
     ${BUN_EXECUTABLE}
-      run
       ${BUN_JS_SINK_SCRIPT}
       ${CODEGEN_PATH}
   SOURCES
@@ -576,7 +571,6 @@ foreach(i RANGE 0 ${BUN_OBJECT_LUT_SOURCES_MAX_INDEX})
       ${BUN_OBJECT_LUT_SOURCE}
     COMMAND
       ${BUN_EXECUTABLE}
-        run
         ${BUN_OBJECT_LUT_SCRIPT}
         ${BUN_OBJECT_LUT_SOURCE}
         ${BUN_OBJECT_LUT_OUTPUT}

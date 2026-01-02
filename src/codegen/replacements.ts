@@ -1,8 +1,29 @@
-import { LoaderKeys } from "../api/schema";
+// import { LoaderKeys } from "../api/schema.ts";
+const LoaderKeys = {
+  1: "jsx",
+  2: "js",
+  3: "ts",
+  4: "tsx",
+  5: "css",
+  6: "file",
+  7: "json",
+  8: "jsonc",
+  9: "toml",
+  10: "wasm",
+  11: "napi",
+  12: "base64",
+  13: "dataurl",
+  14: "text",
+  15: "bunsh",
+  16: "sqlite",
+  17: "sqlite_embedded",
+  18: "html",
+  19: "yaml",
+};
 import NodeErrors from "../bun.js/bindings/ErrorCode.ts";
-import jsclasses from "./../bun.js/bindings/js_classes";
-import { sliceSourceCode } from "./builtin-parser";
-import { registerNativeCall } from "./generate-js2native";
+import jsclasses from "./../bun.js/bindings/js_classes.ts";
+import { sliceSourceCode } from "./builtin-parser.ts";
+import { registerNativeCall } from "./generate-js2native.ts";
 
 // This is a list of extra syntax replacements to do. Kind of like macros
 // These are only run on code itself, not string contents or comments.
@@ -129,8 +150,8 @@ export const define: Record<string, string> = {
   $streamWaiting: "5",
   $streamWritable: "6",
 
-  "process.platform": JSON.stringify(Bun.env.TARGET_PLATFORM ?? process.platform),
-  "process.arch": JSON.stringify(Bun.env.TARGET_ARCH ?? process.arch),
+  "process.platform": JSON.stringify(process.env.TARGET_PLATFORM ?? process.platform),
+  "process.arch": JSON.stringify(process.env.TARGET_ARCH ?? process.arch),
 };
 
 // ------------------------------ //

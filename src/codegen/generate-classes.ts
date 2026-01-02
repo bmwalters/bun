@@ -1,8 +1,9 @@
 // @ts-nocheck
 import path from "path";
-import jsclasses from "./../bun.js/bindings/js_classes";
-import { InvalidThisBehavior, type ClassDefinition, type Field } from "./class-definitions";
-import { camelCase, pascalCase, writeIfNotChanged } from "./helpers";
+import util from "node:util";
+import jsclasses from "./../bun.js/bindings/js_classes.ts";
+import { InvalidThisBehavior, type ClassDefinition, type Field } from "./class-definitions.ts";
+import { camelCase, pascalCase, writeIfNotChanged } from "./helpers.ts";
 
 if (process.env.BUN_SILENT === "1") {
   console.log = () => {};
@@ -2768,11 +2769,11 @@ const classes: ClassDefinition[] = [];
   let errors = [];
   for (const file of files) {
     const filepath = path.resolve(file);
-    const result = require(filepath);
+    const result = await import(filepath);
     if (!(result?.default?.length ?? 0)) {
       errors.push(
         new TypeError(
-          `Missing classes in "${path.relative(process.cwd(), filepath)}". Expected \`export default [ define(...) ] satisfies Array<ClassDefinition>\` but got ${Bun.inspect(result).slice(0, 100) + "..."} `,
+          `Missing classes in "${path.relative(process.cwd(), filepath)}". Expected \`export default [ define(...) ] satisfies Array<ClassDefinition>\` but got ${util.inspect(result).slice(0, 100) + "..."} `,
         ),
       );
       continue;

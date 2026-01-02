@@ -17,13 +17,16 @@
 // single JSC::SourceProvider and pass start/end positions to each function's
 // JSC::SourceCode. JSC does this, but WebCore does not seem to.
 import assert from "assert";
-import { readdirSync, rmSync } from "fs";
+import fs from "fs";
+import { readdirSync, rmSync, readFileSync } from "fs";
+import { readFile, writeFile } from "fs/promises";
 import path from "path";
-import { sliceSourceCode } from "./builtin-parser";
-import { createAssertClientJS, createLogClientJS } from "./client-js";
-import { getJS2NativeDTS } from "./generate-js2native";
-import { addCPPCharArray, cap, low, writeIfNotChanged } from "./helpers";
-import { applyGlobalReplacements, define } from "./replacements";
+import { sliceSourceCode } from "./builtin-parser.ts";
+import { createAssertClientJS, createLogClientJS } from "./client-js.ts";
+import { getJS2NativeDTS } from "./generate-js2native.ts";
+import { addCPPCharArray, cap, low, writeIfNotChanged } from "./helpers.ts";
+import { applyGlobalReplacements, define } from "./replacements.ts";
+import * as esbuild from "esbuild";
 
 const PARALLEL = false;
 const KEEP_TMP = true;
@@ -37,7 +40,7 @@ if (!CMAKE_BUILD_ROOT) {
   throw new Error("CMAKE_BUILD_ROOT is not defined");
 }
 
-const SRC_DIR = path.join(import.meta.dir, "../js/builtins");
+const SRC_DIR = path.join(import.meta.dirname, "../js/builtins");
 const CODEGEN_DIR = path.join(CMAKE_BUILD_ROOT, "./codegen");
 const TMP_DIR = path.join(CMAKE_BUILD_ROOT, "./tmp_functions");
 
@@ -68,9 +71,9 @@ interface BundledBuiltin {
 /**
  * Source .ts file --> Array<bundled js function code>
  */
-async function processFileSplit(filename: string): Promise<{ functions: BundledBuiltin[]; internal: boolean }> {
+async function processFileSplit(filename: string, debug: boolean): Promise<{ functions: BundledBuiltin[]; internal: boolean }> {
   const basename = path.basename(filename, ".ts");
-  let contents = await Bun.file(filename).text();
+  let contents = fs.readFileSync(filename, "utf8");
 
   contents = applyGlobalReplacements(contents);
   const originalContents = contents;
@@ -266,8 +269,8 @@ async function processFileSplit(filename: string): Promise<{ functions: BundledB
     // const useThis = fn.usesThis;
     const useThis = true;
 
-    // TODO: we should use format=IIFE so we could bundle imports and extra functions.
-    await Bun.write(
+    // TODO: we should use format=Iso we could bundle imports and extra functions.
+    fs.writeFileSync(
       tmpFile,
       `// @ts-nocheck
 // GENERATED TEMP FILE - DO NOT EDIT
@@ -283,21 +286,26 @@ $$capture_start$$(${fn.async ? "async " : ""}${
       } {${fn.source}}).$$capture_end$$;
 `,
     );
-    await Bun.sleep(1);
-    const build = await Bun.build({
-      entrypoints: [tmpFile],
+    await new Promise(r => setTimeout(r, 1));
+    const build = await esbuild.build({
+      entryPoints: [tmpFile],
       define,
-      target: "bun",
-      minify: { syntax: true, whitespace: false, keepNames: true },
+      target: "esnext",
+      minify: !debug,
+      minifyWhitespace: false,
+      keepNames: false,
+      bundle: true,
+      write: false,
+      format: "esm",
     });
     // TODO: Wait a few versions before removing this
-    if (!build.success) {
-      throw new AggregateError(build.logs, "Failed bundling builtin function " + fn.name + " from " + basename + ".ts");
+    if (build.errors.length > 0) {
+      throw new AggregateError(build.errors, "Failed bundling builtin function " + fn.name + " from " + basename + ".ts");
     }
-    if (build.outputs.length !== 1) {
+    if (build.outputFiles.length !== 1) {
       throw new Error("expected one output");
     }
-    let output = (await build.outputs[0].text()).replaceAll("// @bun\n", "");
+    let output = build.outputFiles[0].text.replaceAll("// @bun\n", "");
     let usesDebug = output.includes("$debug_log");
     let usesAssert = output.includes("$assert");
     const captured = output.match(/\$\$capture_start\$\$([\s\S]+)\.\$\$capture_end\$\$/)![1];
@@ -350,12 +358,12 @@ $$capture_start$$(${fn.async ? "async " : ""}${
 }
 
 const files: Array<{ basename: string; functions: BundledBuiltin[]; internal: boolean }> = [];
-async function processFunctionFile(x: string) {
+async function processFunctionFile(x: string, debug: boolean) {
   const basename = path.basename(x, ".ts");
   try {
     files.push({
       basename,
-      ...(await processFileSplit(path.join(SRC_DIR, x))),
+      ...(await processFileSplit(path.join(SRC_DIR, x), debug)),
     });
   } catch (error) {
     console.error("Failed to process file: " + basename + ".ts");
@@ -366,19 +374,25 @@ async function processFunctionFile(x: string) {
 
 interface BundleBuiltinFunctionsArgs {
   requireTransformer: (x: string, filename: string) => string;
+  debug: boolean;
 }
 
-export async function bundleBuiltinFunctions({ requireTransformer }: BundleBuiltinFunctionsArgs) {
+export async function bundleBuiltinFunctions({ requireTransformer, debug }: BundleBuiltinFunctionsArgs) {
+  // Ensure tmp_functions directory exists
+  if (!fs.existsSync(TMP_DIR)) {
+    fs.mkdirSync(TMP_DIR, { recursive: true });
+  }
+
   const filesToProcess = readdirSync(SRC_DIR)
     .filter(x => x.endsWith(".ts") && !x.endsWith(".d.ts"))
     .sort();
 
   // Bun seems to crash if this is parallelized, :(
   if (PARALLEL) {
-    await Promise.all(filesToProcess.map(processFunctionFile));
+    await Promise.all(filesToProcess.map(x => processFunctionFile(x, debug)));
   } else {
     for (const x of filesToProcess) {
-      await processFunctionFile(x);
+      await processFunctionFile(x, debug);
     }
   }
 
@@ -754,8 +768,8 @@ JSBuiltinInternalFunctions::JSBuiltinInternalFunctions(JSC::VM& vm) : m_vm(vm)
     `;
   // Handle builtin names
   {
-    const BunBuiltinNamesHeader = require("fs").readFileSync(
-      path.join(import.meta.dir, "../js/builtins/BunBuiltinNames.h"),
+    const BunBuiltinNamesHeader = readFileSync(
+      path.join(import.meta.dirname, "../js/builtins/BunBuiltinNames.h"),
       "utf8",
     );
     let definedBuiltinNamesStartI = BunBuiltinNamesHeader.indexOf(

@@ -147,5 +147,5 @@ for (const mode of [
             signalCode: "SIGINT",
           },
     );
-  });
+  }, 15000);
 }

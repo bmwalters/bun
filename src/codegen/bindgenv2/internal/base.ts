@@ -1,5 +1,8 @@
 import util from "node:util";
-import type { NullableType, OptionalType } from "./optional";
+import { createRequire } from "node:module";
+import type { NullableType, OptionalType } from "./optional.ts";
+
+const require = createRequire(import.meta.url);
 
 /** Default is "compact". */
 export type CodeStyle = "compact" | "pretty";
@@ -7,12 +10,12 @@ export type CodeStyle = "compact" | "pretty";
 export abstract class Type {
   /** Treats `undefined` as a not-provided value. */
   get optional(): OptionalType {
-    return require("./optional").optional(this);
+    return require("./optional.ts").optional(this);
   }
 
   /** Treats `null` or `undefined` as a not-provided value. */
   get nullable(): NullableType {
-    return require("./optional").nullable(this);
+    return require("./optional.ts").nullable(this);
   }
 
   abstract readonly idlType: string;

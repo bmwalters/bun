@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import { join, resolve } from "path";
 
 const classes = ["ArrayBufferSink", "FileSink", "HTTPResponseSink", "HTTPSResponseSink", "NetworkSink"];
@@ -1049,15 +1051,14 @@ function lutInput() {
 
 const outDir = resolve(process.argv[2]);
 
-await Bun.write(resolve(outDir + "/JSSink.h"), header());
-await Bun.write(resolve(outDir + "/JSSink.cpp"), await implementation());
-await Bun.write(resolve(outDir + "/JSSink.lut.txt"), lutInput());
+fs.writeFileSync(resolve(outDir + "/JSSink.h"), header());
+fs.writeFileSync(resolve(outDir + "/JSSink.cpp"), await implementation());
+fs.writeFileSync(resolve(outDir + "/JSSink.lut.txt"), lutInput());
 
-Bun.spawnSync(
+spawnSync(
+  process.execPath,
   [
-    process.execPath,
-    "run",
-    join(import.meta.dir, "create-hash-table.ts"),
+    join(import.meta.dirname, "create-hash-table.ts"),
     resolve(outDir + "/JSSink.lut.txt"),
     join(outDir, "JSSink.lut.h"),
   ],

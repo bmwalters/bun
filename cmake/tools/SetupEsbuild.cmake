@@ -4,17 +4,15 @@ else()
   setx(ESBUILD_EXECUTABLE ${CWD}/node_modules/.bin/esbuild)
 endif()
 
-if(CMAKE_COLOR_DIAGNOSTICS)
-  set(ESBUILD_ARGS --color)
-endif()
-
-register_command(
-  COMMAND
-    ${BUN_EXECUTABLE}
-      install
-      --frozen-lockfile
-  SOURCES
-    ${CWD}/package.json
+register_npm_install(
+  CWD
+    ${CWD}
+  NODE_MODULES_VARIABLE
+    ESBUILD_NODE_MODULES
   OUTPUTS
     ${ESBUILD_EXECUTABLE}
 )
+
+if(CMAKE_COLOR_DIAGNOSTICS)
+  set(ESBUILD_ARGS --color)
+endif()

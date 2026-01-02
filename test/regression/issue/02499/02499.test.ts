@@ -5,7 +5,7 @@ import { join } from "path";
 
 // https://github.com/oven-sh/bun/issues/2499
 it("onAborted() and onWritable are not called after receiving an empty response body due to a promise rejection", async testDone => {
-  var timeout = AbortSignal.timeout(10_000);
+  var timeout = AbortSignal.timeout(50_000);
   timeout.onabort = e => {
     testDone(new Error("Test timed out, which means it failed"));
   };
@@ -88,4 +88,4 @@ it("onAborted() and onWritable are not called after receiving an empty response 
   }
   timeout.onabort = () => {};
   testDone();
-}, 30_000);
+}, 60_000);

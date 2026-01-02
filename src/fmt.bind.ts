@@ -1,4 +1,4 @@
-import { fn, t } from "bindgen";
+import { fn, t } from "#bindgen";
 
 const implNamespace = "js_bindings";
 

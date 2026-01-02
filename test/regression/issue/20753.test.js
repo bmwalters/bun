@@ -30,7 +30,7 @@ describe.skipIf(isWindows /* accessing posix-specific paths */)("stdout should a
 
   test("execFile returns string stdout/stderr for permission denied errors", done => {
     // Another edge case: file exists but not executable
-    execFile("/etc/passwd", [], (err, stdout, stderr) => {
+    execFile("/proc/version", [], (err, stdout, stderr) => {
       expect(err).toBeTruthy();
       expect(err.code).toBe("EACCES");
 
