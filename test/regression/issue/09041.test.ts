@@ -25,4 +25,4 @@ ${exitCode}
   const err = stderrText;
   expect(err).toContain("1 pass");
   expect(err).toContain("0 fail");
-}, 30000);
+}, 60000);

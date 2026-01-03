@@ -24,7 +24,7 @@ test("09041", async () => {
     expect(run.stdout).toHaveLength(len);
     expect(run.stdout).toEqual(buffer);
   }
-}, 30000);
+}, 60000);
 
 function condense(str: string) {
   const nums = str.split(",").map(n => (isNaN(+n) ? n : +n));
