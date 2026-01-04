@@ -616,11 +616,13 @@ endfunction()
 # Description:
 #   Registers a command to run `bun install` in a directory.
 # Arguments:
-#   CWD                   string - The directory to run `bun install`
-#   NODE_MODULES_VARIABLE string - The variable to set to list of node_modules sources
+#   CWD                   string   - The directory to run the install command
+#   NODE_MODULES_VARIABLE string   - The variable to set to list of node_modules sources
+#   OUTPUTS               string[] - Additional outputs to register (e.g. binaries in node_modules/.bin)
 function(register_bun_install)
   set(args CWD NODE_MODULES_VARIABLE)
-  cmake_parse_arguments(NPM "" "${args}" "" ${ARGN})
+  set(multiArgs OUTPUTS)
+  cmake_parse_arguments(NPM "" "${args}" "${multiArgs}" ${ARGN})
 
   if(NOT NPM_CWD)
     set(NPM_CWD ${CWD})
@@ -656,6 +658,7 @@ function(register_bun_install)
       ${NPM_CWD}/package.json
     OUTPUTS
       ${NPM_NODE_MODULES}
+      ${NPM_OUTPUTS}
   )
 
   set(${NPM_NODE_MODULES_VARIABLE} ${NPM_NODE_MODULES} PARENT_SCOPE)
