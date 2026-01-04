@@ -6,80 +6,40 @@ The commits on this branch so far have been sufficient to remove the dependency 
 * As a bundler (`bun build`) --> replaced invocations with esbuild (already inconsistently used by certain codegen scripts). Requires finesse to ensure output formats match Bun as the codegen scripts are tightly coupled to the bundler output format.
 * As a package manager (`bun install`) --> npm install.
 
-So far, codegen ostensibly completes and a bun-debug binary can be built with the replacements listed above. However not all tests are passing.
+So far, codegen ostensibly completes and a bun-debug binary can be built while passing non-flaky portions of the regression test suite. However the patches must now be worked into a form suitable for contributing our patches to the upstream Bun project.
 
-# Task 1: Fix failing regression tests
+## Task 1: Define an upstreamable strategy for codegen dep installation
 
-The regression test suite in `test/regression/` has multiple failing tests. These failures need to be diagnosed and fixed. Tests are sharded across parallel CI agents, so each test needs individual investigation.
+When bun is present, devDependencies from the top-level package.json will ensure dependencies such as esbuild and @lezer/cpp are visible to files in src/codegen/.
 
-## Failing Tests Checklist
+With npm, we are precluded from leveraging the top-level package.json as it relies on bun-specific features (namely, the workspace protocol in devDependencies).
 
-- [x] #8794 (mocked function stack trace crash) - `test/regression/issue/08794.test.ts`
-  - Resolution: Test passed on retry.
-- [x] 09041 (timeout after 30000ms) - `test/regression/issue/09041.test.ts`
-  - Resolution: Increased timeout from 30s to 60s to accommodate debug build performance (test takes ~35s).
-- [x] 09748 (timeout after 5000ms) - `test/regression/issue/09748.test.ts`
-  - Resolution: Increased timeout from 5s to 30s to accommodate debug build performance (test takes ~15s).
-- [x] 17766 acorn - `test/regression/issue/17766.test.ts`
-  - Resolution: Modified test to install acorn dependency locally using tempDirWithFiles and bun install. Test likely worked for other developers who had installed top-level test/node_modules.
-- [x] stdout should always be a string > execFile returns string stdout/stderr for permission denied errors - `test/regression/issue/20753.test.js`
-  - Resolution: Changed test to use /proc/version instead of /etc/passwd (which doesn't exist in this environment).
-- [x] V8StackTraceIterator handles frames without parentheses (issue #23022) - `test/regression/issue/23022-stack-trace-iterator.test.ts`
-  - Resolution: Test passed on retry.
-- [x] kills on SIGINT in: 'bun ./node_modules/.bin/vite' (timeout after 5000ms) - `test/regression/issue/ctrl-c.test.ts`
-- [x] kills on SIGINT in: 'bun --bun vite' (timeout after 5000ms) - `test/regression/issue/ctrl-c.test.ts`
-- [x] kills on SIGINT in: 'bun --bun dev' (timeout after 5000ms) - `test/regression/issue/ctrl-c.test.ts`
-- [x] kills on SIGINT in: 'bun --bun ./node_modules/.bin/vite' (timeout after 5000ms) - `test/regression/issue/ctrl-c.test.ts`
-  - Resolution: Increased timeout from 5s to 15s to accommodate debug build performance and vite startup time.
-- [x] Error.prepareStackTrace should not crash when stacktrace parameter is not an array - `test/regression/issue/prepare-stack-trace-crash.test.ts`
-- [x] Error.prepareStackTrace should work with empty message - `test/regression/issue/prepare-stack-trace-crash.test.ts`
-- [x] Error.prepareStackTrace should work with no message - `test/regression/issue/prepare-stack-trace-crash.test.ts`
-  - Resolution: All three tests passed on retry.
-- [x] onAborted() and onWritable are not called after receiving an empty response body due to a promise rejection (timeout after 10022.76ms) - `test/regression/issue/02499/02499.test.ts`
-  - Resolution: Increased internal timeout from 10s to 50s and test timeout from 30s to 60s for debug build performance (test takes ~30s).
-- [x] test node target - `test/regression/issue/03844/03844.test.ts`
-  - Resolution: Added beforeAll to install ws dependency, and added root option to Bun.build calls to resolve packages from test directory.
-- [x] more unicode imports - `test/regression/issue/14976/14976.test.ts`
-  - Resolution: Test passed on retry.
-- [x] TTY stdin buffering should work correctly - `test/regression/issue/18239/18239.test.ts`
-  - Resolution: Increased delay between lines in data-generator.sh from 0.2s to 1s to allow debug build time to start and process chunks separately.
-- [x] should not time out - `test/regression/issue/20144/20144.test.ts`
-  - Resolution: Increased spawn timeout from 1s to 5s to accommodate debug build startup time.
-- [ ] #8794 (mocked function stack trace) - `test/regression/issue/08794.test.ts`
-  - Issue: Stack trace assertion error - expects stack to be a string but received non-string value
-- [ ] V8StackTraceIterator handles frames without parentheses (issue #23022) - `test/regression/issue/23022-stack-trace-iterator.test.ts`
-  - Issue: Frame count validation failing - expects > 3 frames but received 0
-- [ ] Error.prepareStackTrace should not crash when stacktrace parameter is not an array - `test/regression/issue/prepare-stack-trace-crash.test.ts`
-  - Issue: Error.prepareStackTrace returning undefined instead of string
-- [ ] Error.prepareStackTrace should work with empty message - `test/regression/issue/prepare-stack-trace-crash.test.ts`
-  - Issue: Error.prepareStackTrace returning undefined instead of string
-- [ ] Error.prepareStackTrace should work with no message - `test/regression/issue/prepare-stack-trace-crash.test.ts`
-  - Issue: Error.prepareStackTrace returning undefined instead of string
-- [ ] more unicode imports - `test/regression/issue/14976/14976.test.ts`
-  - Issue: File not found error in shell interpreter
-- [ ] React JSX dev runtime - `test/regression/issue/14515.test.tsx`
-  - Issue: Cannot find module 'react/jsx-dev-runtime' - missing npm dependency
-- [ ] Testing library jest-dom matchers - `test/regression/issue/16312.test.ts`
-  - Issue: Cannot find module '@testing-library/jest-dom/matchers' - missing npm dependency
-- [ ] Bundler plugin onresolve entrypoint - `test/regression/issue/bundler-plugin-onresolve-entrypoint.test.ts`
-  - Issue: Cannot find package 'esbuild' - missing npm dependency
+There are a few solution options:
 
-## Approach
-
-For each failing test:
-
-1. Run the test locally to reproduce the failure
-2. Examine the test file in `test/regression/` to understand what it's testing
-3. Identify the root cause (e.g., missing builtin, incorrect output format, resource issue)
-4. Fix the underlying issue in the codebase
-5. Verify the test passes and mark the checklist item as complete
-
-### Test Execution
-
-Run a specific regression test:
-```sh
-BUN_DEBUG_QUIET_LOGS=1 ./build/debug-local/bun-debug test test/regression/path/to/test.ts
-```
+-3. Add support for workspace protocol to npm via plugin / local js file.
+-2. Add support for workspace protocol to upstream npm.
+-1. Use a non-bun tool which supports the workspace protocol (pnpm?).
+0. Improve package.json's compatibility with node/npm.
+1. Install from package.json, filtering out incompatible features. (jq '...' < package.json | npm install -)
+	- Invoke this from CMake when npm is used.
+	- Cons: could become out of date if more incompatible features are added.
+2. Install from package.json, selecting only compatible features. (rg 'esbuild|@lezer' package.json | npm install -)
+	- Invoke this from CMake when npm is used.
+	- Cons: could become out of date if more compatible features / deps are added.
+3. Define a standalone package.json within src/codegen/ and remove those dependencies from the top-level package.json.
+	- May not be achievable if both src/codegen/ and other modules within src/ depend on these deps. Requires research.
+	- Cons: complicates the installation process by adding one more installation command. mitigated somewhat by the fact that cmake already has to orchestrate some package installations, so not actually visible to project developers.
+4. Define a standalone package.json within src/codegen/ but keep the top-level package.json too.
+	- Same cons as (3), plus:
+	- Cons: two sources of truth for which dependencies must be installed, version specifier, etc.
+5. Extract src/codegen to a package in packages/ which is thus decoupled from the rest of src / the top-level package.json.
+	- May not be achievable if codegen depends on modules within the rest of src. Still could be possible if dependency injection OR further extracting those deps to yet another top level package could be employed. Requires research.
+6. Leave the question of how node_modules are populated for codegen out of scope for the bun repository; the distro package script would be responsible for making those dependencies visible when codegen scripts require them. (Write to node_modules or provide alternative path via env var if needed.)
+	- In practice, could be implemented using (1) or (2) or by writing/copying directly to node_modules. Or install these globally on the system (a la Debian presumably). The distinction from (1) or (2) is that in those options CMake would encasulate those commands (if it detects an empty node_modules at the time of running codegen.)
+7. Split to two distinct package.json files: package.json, package.npm.json; CMake selects as appropriate
+	- Cons: Some duplication, thought it's quite discoverable for maintainers.
+8. Keep package.json for everything except what's needed for codegen; move codegen to a standalone dependency fetching system (i.e. a package.codegen.json or even CMake's ExternalProject_Add)
+	- Fundamentally seems like a variant of (3) or (4).
 
 # Useful Commands
 
